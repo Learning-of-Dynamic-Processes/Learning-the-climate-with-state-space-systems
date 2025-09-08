@@ -235,6 +235,7 @@ class ESNModel:
 
         batch = x_0.shape[0]
         warm_up_length = x_0.shape[1]
+        print(batch, warm_up_length)
         if h0 is None:
             h0 = torch.zeros(batch, self.net.reservoir_size).to(self.device)
 

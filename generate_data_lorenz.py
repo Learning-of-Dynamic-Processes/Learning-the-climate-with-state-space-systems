@@ -1,6 +1,6 @@
 #%%
 import numpy as np
-from dynamical_systems import lorenz
+from utils.dynamical_systems import lorenz
 
 step = 0.02
 
@@ -15,7 +15,7 @@ np.save('Lorenz_initial_conditions_train', init_conds_train)
 
 #%%
 T_train = 5000
-trajectories_train = lor.forward(init_conds_train, T_train)
+trajectories_train = lor.integrate(init_conds_train, T_train)
 
 np.save('Lorenz_trajectories_train', trajectories_train)
 
@@ -30,7 +30,7 @@ np.save('Lorenz_initial_conditions_test', init_conds_test)
 
 #%%
 T_test = 5000
-trajectories_test = lor.forward(init_conds_test, T_test)
+trajectories_test = lor.integrate(init_conds_test, T_test)
 
 np.save('Lorenz_trajectories_test', trajectories_test)
 

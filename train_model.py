@@ -1,4 +1,4 @@
-"""Run Lorenz example."""
+#%%
 import os
 
 import matplotlib.pyplot as plt
@@ -19,28 +19,48 @@ torch.set_default_dtype(config["TRAINING"]["dtype"])
 if not os.path.exists(config["PATH"]):
     os.makedirs(config["PATH"])
 
+#%%
 dataset_train = Dataset(
-    config["DATA"]["n_train"], config["DATA"]["l_trajectories"], config["DATA"]["parameters"], config["DATA"]["load_data"]
+    config["DATA"]["n_train"], config["DATA"]["l_trajectories"], config["DATA"]["step"], 
+    config["DATA"]["dynamical_system_name"], config["DATA"]["parameters"], config["DATA"]["y0"], 
+    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'train'
 )
 dataset_train.save_data()
-dataset_val = Dataset(
-    config["DATA"]["n_val"], config["DATA"]["l_trajectories"], config["DATA"]["parameters"], False
-)
-dataset_test = Dataset(
-    config["DATA"]["n_test"], config["DATA"]["l_trajectories_test"], config["DATA"]["parameters"], False
-)
 
+#%%
+dataset_val = Dataset(
+    config["DATA"]["n_val"], config["DATA"]["l_trajectories"], config["DATA"]["step"], 
+    config["DATA"]["dynamical_system_name"], config["DATA"]["parameters"], config["DATA"]["y0"], 
+    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'validate'
+)
+dataset_val.save_data()
+
+#%%
+dataset_test = Dataset( 
+    config["DATA"]["n_test"], config["DATA"]["l_trajectories"], config["DATA"]["step"], 
+    config["DATA"]["dynamical_system_name"], config["DATA"]["parameters"], config["DATA"]["y0"], 
+    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'test'
+)
+dataset_test.save_data()
+#%%
+dataset_train.tt.shape
+dataset_train.input_data.shape
+#%%
 fig = plt.figure()
 ax = fig.add_subplot(111)
-ax.plot(dataset_train.tt[:-1], dataset_train.input_data[0], label="u")
-ax.plot(dataset_train.tt[:-1], dataset_train.v_data[0, :, 0], label="v")
-ax.plot(dataset_train.tt[:-1], dataset_train.v_data[0, :, 1], label="w")
+ax.plot(dataset_train.tt[:-1], dataset_train.input_data[0][:, 0], label="u")
+ax.plot(dataset_train.tt[:-1], dataset_train.input_data[0][:, 1], label="v")
+ax.plot(dataset_train.tt[:-1], dataset_train.input_data[0][:, 2], label="w")
 ax.set_xlabel("t")
 plt.legend()
-plt.savefig("dynamical_system_name/fig/data.pdf")
+
+folder = dynamical_system_name + "/fig"
+os.makedirs(folder, exist_ok=True)  # creates the folder if it doesn't exist
+
+plt.savefig(os.path.join(folder, "data.pdf"))
 plt.close()
 
-
+#%%
 # Create PyTorch dataloaders for train and validation data
 dataloader_train = DataLoader(
     dataset_train,
@@ -77,6 +97,7 @@ model = ESNModel(
     device=config["TRAINING"]["device"],
 )
 
+#%%
 if config["TRAINING"]["ridge"]:
     model.train(ridge=config["TRAINING"]["ridge"])
 else:
@@ -110,9 +131,12 @@ model.net = model.net.to("cpu")
 model.save_network(config["PATH"] + "model_")
 model.net = model.net.to(model.device)
 
+#%%
+dataset_test.input_data[0, :warmup, :].shape
+#%%
 warmup = config["DATA"]["max_warmup"]
 predictions, _ = model.integrate(
-    torch.tensor(dataset_test.input_data[0][:warmup], dtype=torch.get_default_dtype()).to(model.device),
+    torch.tensor(dataset_test.input_data[0, :warmup, :], dtype=torch.get_default_dtype()).unsqueeze(0).to(model.device),
     T=dataset_test.input_data[0].shape[0] - warmup - 1,
 )
 
@@ -126,5 +150,9 @@ else:
 ax.axvline(x=dataset_test.tt[warmup], color="k")
 ax.set_xlabel("$t$")
 ax.set_ylabel("$x$")
-plt.savefig("dynamical_system_name/fig/predictions.pdf")
-plt.show()
+folder = dynamical_system_name + "/fig"
+os.makedirs(folder, exist_ok=True)  # creates the folder if it doesn't exist
+
+plt.savefig(os.path.join(folder, "predictions.pdf"))
+plt.close()
+# %%
