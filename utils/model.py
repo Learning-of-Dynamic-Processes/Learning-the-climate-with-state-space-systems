@@ -248,12 +248,12 @@ class ESNModel:
         h_trajectory[:, :warm_up_length, :], _ = self.net(x_0, h0, return_states = True)
         
         # Autoregressive integration
-        x_t = x_trajectory[:, -1, :]
-        h_t = h_trajectory[:, -1, :]
+        x_t = x_trajectory[:, warm_up_length - 1, :].unsqueeze(1)
+        h_t = h_trajectory[:, warm_up_length - 1, :]
         for t in tqdm(range(T), position=0, leave=True):
             x_out, h_out = self.net.forward(x_t, h_0 = h_t)
             x_t, h_t = x_out, h_out
-            x_trajectory[:, t + warm_up_length, :] = x_t
+            x_trajectory[:, t + warm_up_length, :] = x_t.squeeze(1)
             h_trajectory[:, t + warm_up_length, :] = h_t
 
         return x_trajectory, h_trajectory
@@ -342,15 +342,18 @@ class RCNModel(ESNModel):
             )
             _out, _ = self.net(x.to(self.device), return_states=True) # (batch, sequence_length + offset, hidden_size)
             _out = _out[:, self.offset :]
-            y = y[:, self.offset :]
+            y = y[ :, self.offset + 1 :]
 
-            # readout is trained  to learn (h_t, h_t-1) -> y_t
+            # readout is trained  to learn (h_t-1, h_t) -> y_t
             batch, sequence_length = _out.shape[0], _out.shape[1]
             out = _out.new_zeros(batch, sequence_length-1, 2*self.net.reservoir_size)
             out[:, :, :self.net.reservoir_size] = _out[:, :-1, :]
             out[:, :, self.net.reservoir_size:] = _out[:, 1:, :]
             out_np = out.reshape(-1, out.shape[-1]).detach().cpu().numpy()
             y_np = y.reshape(-1, self.net.input_size).detach().cpu().numpy()
+
+            print(out_np.shape)
+            print(y_np.shape)
 
             clf = Ridge(alpha=self.ridge_factor)
             clf.fit(out_np, y_np)

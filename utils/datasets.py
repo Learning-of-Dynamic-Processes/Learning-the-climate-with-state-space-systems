@@ -48,7 +48,7 @@ class Dataset:
         else:
             print("Creating data")
             time_array = np.array([i*step for i in range(len_trajectories)])
-            self.ids = np.arange(len_trajectories)
+            self.ids = np.arange(num_trajectories)
             ds = dynamical_system(step, parameters, method)
             init_conds = ds.generate_ics(num_trajectories, initial_point, sigma)
             trajectories = ds.integrate(init_conds, len_trajectories)

@@ -7,17 +7,29 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
 from utils.datasets import Dataset
-from utils.model import ESN, ESNModel, progress
+from utils.model import ESN, ESNModel, RCN, RCNModel, progress
 
 dynamical_system_name = 'lorenz'
 
 if dynamical_system_name == 'lorenz':
     from lorenz.config import config
-
+    
 torch.set_default_dtype(config["TRAINING"]["dtype"])
 
 if not os.path.exists(config["PATH"]):
     os.makedirs(config["PATH"])
+    
+RC_type = 'RCN'
+
+if RC_type == 'ESN':
+    Network = ESN
+    Model = ESNModel
+elif RC_type == 'RCN':
+    Network = RCN
+    Model = RCNModel
+else:
+    print('RC not supported')
+
 
 #%%
 dataset_train = Dataset(
@@ -42,9 +54,7 @@ dataset_test = Dataset(
     config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'test'
 )
 dataset_test.save_data()
-#%%
-dataset_train.tt.shape
-dataset_train.input_data.shape
+
 #%%
 fig = plt.figure()
 ax = fig.add_subplot(111)
@@ -57,7 +67,7 @@ plt.legend()
 folder = dynamical_system_name + "/fig"
 os.makedirs(folder, exist_ok=True)  # creates the folder if it doesn't exist
 
-plt.savefig(os.path.join(folder, "data.pdf"))
+plt.savefig(os.path.join(folder, "data.png"))
 plt.close()
 
 #%%
@@ -77,7 +87,7 @@ dataloader_val = DataLoader(
     pin_memory=True,
 )
 
-network = ESN(
+network = Network(
     config["MODEL"]["input_size"],
     config["MODEL"]["reservoir_size"],
     config["MODEL"]["hidden_size"],
@@ -87,7 +97,7 @@ network = ESN(
     config["MODEL"]["leaking_rate"],
 )
 
-model = ESNModel(
+model = Model(
     dataloader_train,
     dataloader_val,
     network,
@@ -128,23 +138,22 @@ else:
     plt.show()
 
 model.net = model.net.to("cpu")
-model.save_network(config["PATH"] + "model_")
+model.save_network(config["PATH"] + RC_type + "_model_")
 model.net = model.net.to(model.device)
 
-#%%
-dataset_test.input_data[0, :warmup, :].shape
 #%%
 warmup = config["DATA"]["max_warmup"]
 predictions, _ = model.integrate(
     torch.tensor(dataset_test.input_data[0, :warmup, :], dtype=torch.get_default_dtype()).unsqueeze(0).to(model.device),
-    T=dataset_test.input_data[0].shape[0] - warmup - 1,
+    T=dataset_test.input_data[0].shape[0] - warmup,
 )
 
+#%%
 fig = plt.figure()
 ax = fig.add_subplot(111)
 ax.plot(dataset_test.tt[:-1], dataset_test.input_data[0][:, 0], label="true")
 if len(predictions.shape) > 1:
-    ax.plot(dataset_test.tt[:-1], predictions[:, 0], label="prediction")
+    ax.plot(dataset_test.tt[:-1], predictions[:, :, 0].detach().squeeze(0), label="prediction")
 else:
     ax.plot(dataset_test.tt[:-1], predictions, label="prediction")
 ax.axvline(x=dataset_test.tt[warmup], color="k")
@@ -153,6 +162,6 @@ ax.set_ylabel("$x$")
 folder = dynamical_system_name + "/fig"
 os.makedirs(folder, exist_ok=True)  # creates the folder if it doesn't exist
 
-plt.savefig(os.path.join(folder, "predictions.pdf"))
+plt.savefig(os.path.join(folder, "predictions.png"))
 plt.close()
 # %%
