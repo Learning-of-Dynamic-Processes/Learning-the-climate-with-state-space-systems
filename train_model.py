@@ -19,7 +19,9 @@ torch.set_default_dtype(config["TRAINING"]["dtype"])
 if not os.path.exists(config["PATH"]):
     os.makedirs(config["PATH"])
     
-RC_type = 'RCN'
+RC_type = 'ESN'
+
+tag = RC_type + '_ridge_' + str(config["TRAINING"]["ridge"])
 
 if RC_type == 'ESN':
     Network = ESN
@@ -35,7 +37,7 @@ else:
 dataset_train = Dataset(
     config["DATA"]["n_train"], config["DATA"]["l_trajectories"], config["DATA"]["step"], 
     config["DATA"]["dynamical_system_name"], config["DATA"]["parameters"], config["DATA"]["y0"], 
-    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'train'
+    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'train_' + tag
 )
 dataset_train.save_data()
 
@@ -43,7 +45,7 @@ dataset_train.save_data()
 dataset_val = Dataset(
     config["DATA"]["n_val"], config["DATA"]["l_trajectories"], config["DATA"]["step"], 
     config["DATA"]["dynamical_system_name"], config["DATA"]["parameters"], config["DATA"]["y0"], 
-    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'validate'
+    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'validate_' + tag
 )
 dataset_val.save_data()
 
@@ -51,7 +53,7 @@ dataset_val.save_data()
 dataset_test = Dataset( 
     config["DATA"]["n_test"], config["DATA"]["l_trajectories"], config["DATA"]["step"], 
     config["DATA"]["dynamical_system_name"], config["DATA"]["parameters"], config["DATA"]["y0"], 
-    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'test'
+    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'test_' + tag
 )
 dataset_test.save_data()
 
@@ -138,7 +140,7 @@ else:
     plt.show()
 
 model.net = model.net.to("cpu")
-model.save_network(config["PATH"] + RC_type + "_model_")
+model.save_network(config["PATH"] + tag + "_model_")
 model.net = model.net.to(model.device)
 
 #%%
