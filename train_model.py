@@ -19,7 +19,7 @@ torch.set_default_dtype(config["TRAINING"]["dtype"])
 if not os.path.exists(config["PATH"]):
     os.makedirs(config["PATH"])
     
-RC_type = 'ESN'
+RC_type = config["MODEL"]["RC_type"]
 
 tag = RC_type + '_ridge_' + str(config["TRAINING"]["ridge"])
 
@@ -37,7 +37,7 @@ else:
 dataset_train = Dataset(
     config["DATA"]["n_train"], config["DATA"]["l_trajectories"], config["DATA"]["step"], 
     config["DATA"]["dynamical_system_name"], config["DATA"]["parameters"], config["DATA"]["y0"], 
-    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'train_' + tag
+    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'train'
 )
 dataset_train.save_data()
 
@@ -45,7 +45,7 @@ dataset_train.save_data()
 dataset_val = Dataset(
     config["DATA"]["n_val"], config["DATA"]["l_trajectories"], config["DATA"]["step"], 
     config["DATA"]["dynamical_system_name"], config["DATA"]["parameters"], config["DATA"]["y0"], 
-    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'validate_' + tag
+    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'validate'
 )
 dataset_val.save_data()
 
@@ -53,7 +53,7 @@ dataset_val.save_data()
 dataset_test = Dataset( 
     config["DATA"]["n_test"], config["DATA"]["l_trajectories"], config["DATA"]["step"], 
     config["DATA"]["dynamical_system_name"], config["DATA"]["parameters"], config["DATA"]["y0"], 
-    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'test_' + tag
+    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'test'
 )
 dataset_test.save_data()
 
@@ -108,6 +108,8 @@ model = Model(
     ridge_factor=config["TRAINING"]["ridge_factor"],
     device=config["TRAINING"]["device"],
 )
+#%%
+config["TRAINING"]["ridge"]
 
 #%%
 if config["TRAINING"]["ridge"]:

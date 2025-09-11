@@ -3,6 +3,7 @@ import torch
 from sklearn.linear_model import Ridge
 from torch import nn
 from tqdm.auto import tqdm
+from utils.dynamical_systems import DS
 
 
 class DenseStack(nn.Module):
@@ -81,7 +82,7 @@ class ESN(nn.Module):
 
         # Reservoir
         W_in = torch.rand((reservoir_size, input_size)) - 1 / 2.0
-        W_hat = torch.randn((reservoir_size, reservoir_size))
+        W_hat = torch.rand((reservoir_size, reservoir_size)) - 1 / 2.0
 
         W_in = scale_in * W_in
         W_hat = self.rescale_contractivity(W_hat, scale_rec, rec_rescaling_method)
@@ -257,7 +258,28 @@ class ESNModel:
             h_trajectory[:, t + warm_up_length, :] = h_t
 
         return x_trajectory, h_trajectory
+    
+    def Phi(self, h, t = None):
+        """
+        h : (batch, reservoir_size)
+        """
+        self.net.eval()
+        input_is_numpy = isinstance(h, np.ndarray)
+        
+        if input_is_numpy:
+            # Convert to tensor with same dtype
+            orig_dtype = h.dtype
+            h = torch.from_numpy(h).to(next(self.net.parameters()).device)
 
+        x = self.net.readout(h) # (batch, input_size) (only works when inputs and outputs are same size)
+        _, h_next = self.net(x.unsqueeze(1), h)
+
+        if input_is_numpy:
+                # Convert back to original dtype and NumPy
+                h_next = h_next.detach().cpu().numpy().astype(orig_dtype)
+
+        return h_next
+    
     def save_network(self, name):
         """Save network weights and training loss history."""
         filename = name + "_reservoir_size_" + str(self.net.reservoir_size) + ".net"
@@ -273,6 +295,10 @@ class ESNModel:
         self.train_loss = np.load(name + "_training_loss.npy").tolist()
         self.val_loss = np.load(name + "_validation_loss.npy").tolist()
 
+
+class ESNModel_DS(DS):
+    def __init__(self, model):
+        super().__init__(model.Phi, model.net.reservoir_size)
 
 class RCN(ESN):
     
@@ -380,6 +406,38 @@ class RCNModel(ESNModel):
             self.scheduler.step(sum_loss / cnt)
         self.train_loss.append(sum_loss / cnt)
         return sum_loss / cnt
+
+    def Phi(self, h, t = None):
+        """
+        h = [h_0, h_1] : (batch, 2*reservoir_size)
+        """
+        self.net.eval()
+        input_is_numpy = isinstance(h, np.ndarray)
+
+        if input_is_numpy:
+            # Convert to tensor with same dtype
+            orig_dtype = h.dtype
+            h = torch.from_numpy(h).to(next(self.net.parameters()).device)
+            batch = h.shape[0]
+
+        h_1 = h[:, self.net.reservoir_size:]
+        x = self.net.readout(h) # (batch, input_size) (only works when inputs and outputs are same size)
+
+        h_aug = h.new_zeros(batch, 2*self.net.reservoir_size)
+        h_aug[:, :self.net.reservoir_size] = h_1
+        _, h_aug[:, self.net.reservoir_size:]= self.net(x.unsqueeze(1), h_1)
+
+        if input_is_numpy:
+            # Convert back to original dtype and NumPy
+            h_aug = h_aug.detach().cpu().numpy().astype(orig_dtype)
+
+        return h_aug
+    
+class RCNModel_DS(DS):
+    def __init__(self, model):
+        super().__init__(model.Phi, 2*model.net.reservoir_size)
+
+
 
 def progress(train_loss, val_loss):
     """Define progress bar description."""

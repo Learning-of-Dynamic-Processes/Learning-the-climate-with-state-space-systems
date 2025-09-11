@@ -8,8 +8,9 @@ from tqdm.auto import tqdm
 import numpy as np
 
 from utils.datasets import Dataset
-from utils.model import ESN, ESNModel, RCN, RCNModel, progress
+from utils.model import ESN, ESNModel, ESNModel_DS, RCN, RCNModel,  RCNModel_DS, progress
 import utils.measures as meas
+import utils.dynamical_systems as ds
 
 dynamical_system_name = 'lorenz'
 
@@ -21,14 +22,16 @@ torch.set_default_dtype(config["TRAINING"]["dtype"])
 if not os.path.exists(config["PATH"]):
     os.makedirs(config["PATH"])
 
-RC_type = 'RCN'
+RC_type = config["MODEL"]["RC_type"]
 
 if RC_type == 'ESN':
     Network = ESN
     Model = ESNModel
+    Model_DS = ESNModel_DS
 elif RC_type == 'RCN':
     Network = RCN
     Model = RCNModel
+    Model_DS = RCNModel_DS
 else:
     print('RC not supported')
 
@@ -57,7 +60,8 @@ model = Model(
     network = network,
 )
 
-model.load_network(config["PATH"] + RC_type + "_model_")
+model_name = config["PATH"] + RC_type + "_ridge_" +  str(config["TRAINING"]["ridge"]) + "_model_"
+model.load_network(model_name)
 
 #%% predict
 warmup = config["DATA"]["max_warmup"]
@@ -104,7 +108,7 @@ meas.plot_measure(0.01 * nu1, (0,2), num_bins, 'hist')
 #%% calculate distance between distributions for ESN trajectories
 sigma_kernel = 1
 kernel = lambda x,y: meas.rbf(x,y,sigma_kernel)
-step = 1
+step = 10
 
 #%%
 dist_trajs_truepred_11 = np.zeros(T-warmup)
@@ -176,31 +180,30 @@ sd_meas = 20
 
 find_invar_meas = True
 if find_invar_meas:
-    mu = meas.invariant_measure(phi_lorenz,n_init_cond_meas, t_start, t_end, z0, sd_meas )
+    lor = ds.lorenz()
+    mu = meas.invariant_measure(lor,n_init_cond_meas, t_start, t_end, z0, sd_meas )
     np.save('Lorenz invariant measure', mu)
 else:
     mu = np.load('Lorenz invariant measure.npy')
 #%% plot invariant measure
 
-meas.plot_measure(mu, (0,2), 100, 'hist') # kde takes long and gives strange plots, figure out how to do this better
+meas.plot_measure(mu, (2,1), 100, 'hist') # kde takes long and gives strange plots, figure out how to do this better
 
 #%% invariant measure ESN
-N = 1000
-d = 3
+N = network.reservoir_size
 n_init_cond_meas = 300
 t_start = 400 # need to start from about 300 to make sure you are on the attractor
 t_end = 800 # need a good length to cover the whole attractor, 600 seems sufficient
 x0 = np.zeros((N))
 sd_meas = 300
-Phi = lambda x: esn_help.Phi(x, A,  gamma, C, s, zeta, d, reg_result)
+model_ds = Model_DS(model)
 
 find_invar_meas = True
 if find_invar_meas:
-    zeta_ESN = meas.invariant_measure(Phi, n_init_cond_meas, t_start, t_end, x0, sd_meas )
-    n = zeta_ESN.shape[0]
-    mu_ESN = np.zeros((n,d))
-    for i in range(n):
-        mu_ESN[i,:] = esn_help.observation(zeta_ESN[i,:].reshape((N,1)), reg_result).reshape(d)
+    zeta_ESN = meas.invariant_measure(model_ds, n_init_cond_meas, t_start, t_end, x0, sd_meas )
+    zeta_ESN = torch.from_numpy(zeta_ESN)
+    mu_ESN = network.readout(zeta_ESN)
+    mu_ESN = mu_ESN.detach().cpu().numpy()
     np.save('Lorenz ESN invariant measure state space', zeta_ESN)
     np.save('Lorenz ESN invariant measure readout', mu_ESN)
 else:
@@ -209,7 +212,7 @@ else:
 
 #%% plot invariant measure
 
-meas.plot_measure(mu_ESN, (0,1), 100, 'hist') # kde takes long and gives strange plots, figure out how to do this better
+meas.plot_measure(mu_ESN, (2,0), 100, 'hist') # kde takes long and gives strange plots, figure out how to do this better
 
 
 #%%
@@ -223,3 +226,5 @@ ax.scatter(x_plot, y_plot, z_plot, s = 5)
 ax.set_xlabel('x')
 ax.set_ylabel('y')
 ax.set_zlabel('z')
+
+# %%

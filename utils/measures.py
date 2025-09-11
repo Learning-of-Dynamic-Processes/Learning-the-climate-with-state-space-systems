@@ -7,28 +7,21 @@ from statistics import mean, stdev
 import math
 import sys
 import seaborn as sns
+from utils.dynamical_systems import generate_points
 
-# def invariant_measure(phi, n_init_cond, t_start, t_end, center, sd, pdf = "gaussian", seed = None):
-#     init_conds = data_gen.gen_init_cond(n_init_cond, center, sd, pdf=pdf, seed = seed)
-#     measure = np.zeros(( n_init_cond * (t_end - t_start), center.shape[0]))
-#     for i in range(n_init_cond):
-#         z = init_conds[i,:]
-#         for t in range(t_end):
-#             if t >= t_start:
-#                 measure[i*(t_end-t_start) + t-t_start,:] = z.reshape(z.shape[0])
-#             z = phi(z)
-#     return measure    
+def invariant_measure(phi, n_points, t_start, t_end, y0, sd, distribution = "uniform", seed = None):
+    """
+    phi : dynamical system, supports batch input
+    """
+    n_dim = y0.shape[0]
+    init_conds = generate_points(n_points, y0, sd, distribution=distribution, seed = seed)
+    measure = phi.integrate(init_conds, t_end)[:, t_start: , :] # (batch, t_end-t_start, n_dim)
+    
+    return measure.reshape(-1, n_dim)  # (n_points * (t_end - t_start), n_dim)
 
-def pushforward(phi, measure, t=1):
-    new_measure = np.zeros(measure.shape)
-    for i in range(measure.shape[0]):
-        z = measure[i,:]
-        for j in range(t):
-            z=phi(z)
-        new_measure[i,:] = z
-    return new_measure            
+# def pushforward(phi, measure, t=1):
 
-def plot_measure(measure, axes =(0,1), num_bins = None, plot_type = 'kde'):
+def plot_measure(measure, axes = (0,1), num_bins = None, plot_type = 'kde'):
     if len(measure.shape) == 2:
         measure = measure.reshape((1,measure.shape[0], measure.shape[1]))
     
