@@ -4,7 +4,7 @@ from sklearn.linear_model import Ridge
 from torch import nn
 from tqdm.auto import tqdm
 from utils.dynamical_systems import DS
-
+import time
 
 class DenseStack(nn.Module):
     """
@@ -115,7 +115,7 @@ class ESN(nn.Module):
     def forward(self, input, h_0=None, return_states=False):
         """
         input : (batch, sequence_length, input_size)
-        h_0 : (batch, hidden_size)
+        h_0 : (batch, reservoir_size)
         """
         batch = input.shape[0]
 
@@ -123,18 +123,18 @@ class ESN(nn.Module):
             h_0 = input.new_zeros((batch, self.reservoir_size))
 
         next_layer_input = input  # (batch, sequence_length, input_size)
-        layer_outputs = []  # list of (batch, hidden_size)
+        layer_outputs = []  # list of (batch, reservoir_size)
         step_h = h_0
         for i in range(next_layer_input.shape[1]):
             x_t = next_layer_input[:, i]
-            h = self.forward_reservoir(x_t, step_h)  # (batch, hidden_size)
+            h = self.forward_reservoir(x_t, step_h)  # (batch, reservoir_size)
             step_h = h
             if return_states:
                 layer_outputs.append(h)
             else:
                 layer_outputs.append(self.readout(h))
         h_n = step_h
-        layer_outputs = torch.stack(layer_outputs, axis=1)
+        layer_outputs = torch.stack(layer_outputs, axis=1) # (batch, sequence_length, output_size or reservoir_size)
         return layer_outputs, h_n
 
 
@@ -181,8 +181,8 @@ class ESNModel:
                 self.dataloader_train.dataset.output_data, dtype=torch.float64
             )
             out, _ = self.net(x.to(self.device), return_states=True)
-            out = out[:, self.offset :]
-            y = y[:, self.offset :]
+            out = out[:, self.offset :] # (batch, sequence_length - self.offset, reservoir_size)
+            y = y[:, self.offset :] # (batch, sequence_length - self.offset, n_dim)
             out_np = out.reshape(-1, out.shape[-1]).detach().cpu().numpy()
             y_np = y.reshape(-1, self.net.input_size).detach().cpu().numpy()
 
@@ -192,8 +192,8 @@ class ESNModel:
                 torch.tensor(clf.coef_, dtype=torch.float64).to(self.device)
             )
             self.net.readout.fc_layers[0].bias = torch.nn.Parameter(
-                torch.tensor(clf.intercept_, dtype=torch.float64).to(self.device)
-                # torch.zeros_like(self.net.readout.fc_layers[0].bias).to(self.device)
+                # torch.tensor(clf.intercept_, dtype=torch.float64).to(self.device)
+                torch.zeros_like(self.net.readout.fc_layers[0].bias).to(self.device)
             )
             sum_loss = self.criterion(self.net.readout(out), y.to(self.device)).detach().cpu().numpy()
             cnt = 1
@@ -211,6 +211,34 @@ class ESNModel:
             self.optimizer.zero_grad()
             self.scheduler.step(sum_loss / cnt)
         self.train_loss.append(sum_loss / cnt)
+                
+        # self.net.train()
+        # cnt, sum_loss = 0, 0
+
+        # start_time = time.time()
+
+        # # Wrap the dataloader with tqdm for a progress bar
+        # for batch_idx, (x, y) in enumerate(tqdm(self.dataloader_train, desc="Training", unit="batch")):
+        #     self.optimizer.zero_grad()
+        #     out, _ = self.net(x.to(self.device))
+        #     loss = self.criterion(out[:, self.offset:], y[:, self.offset:].to(self.device))
+        #     loss.backward()
+        #     self.optimizer.step()
+        #     sum_loss += loss.detach().cpu().numpy()
+        #     cnt += 1
+
+        #     # Print timing info every 50 batches (for example)
+        #     if (batch_idx + 1) % 50 == 0:
+        #         elapsed = time.time() - start_time
+        #         avg_time_per_batch = elapsed / (batch_idx + 1)
+        #         print(f"[Batch {batch_idx+1}/{len(self.dataloader_train)}] "
+        #             f"Avg batch time: {avg_time_per_batch:.4f}s | Elapsed: {elapsed:.2f}s")
+
+        # self.optimizer.zero_grad()
+        # self.scheduler.step(sum_loss / cnt)
+
+        # self.train_loss.append(sum_loss / cnt)
+
         return sum_loss / cnt
 
     def validate(self):
@@ -238,20 +266,24 @@ class ESNModel:
         batch = x_0.shape[0]
         warm_up_length = x_0.shape[1]
         print(batch, warm_up_length)
-        if h0 is None:
-            h0 = torch.zeros(batch, self.net.reservoir_size).to(self.device)
-
-        x_trajectory = torch.zeros(batch, warm_up_length + T, self.net.input_size) # input_size = output_size for autoregressive integration
-        h_trajectory = torch.zeros(batch, warm_up_length + T, self.net.reservoir_size)
+        
         x_0 = x_0.to(self.device)
+        if h0 is None:
+            h0 = x_0.new_zeros(batch, self.net.reservoir_size).to(self.device)
+        
+        x_trajectory = x_0.new_zeros(batch, warm_up_length + T, self.net.input_size) # input_size = output_size for autoregressive integration
+        h_trajectory = x_0.new_zeros(batch, warm_up_length + T, self.net.reservoir_size)
         
         # Warmup
-        x_trajectory[:, :warm_up_length, :] = x_0
         h_trajectory[:, :warm_up_length, :], _ = self.net(x_0, h0, return_states = True)
-        
-        # Autoregressive integration
-        x_t = x_trajectory[:, warm_up_length - 1, :].unsqueeze(1)
         h_t = h_trajectory[:, warm_up_length - 1, :]
+        
+        x_trajectory[:, :warm_up_length - 1, :] = x_0[:, 1:, :]
+        x_t = self.net.readout(h_t)
+        x_trajectory[:, warm_up_length - 1, :] = x_t
+        x_t = x_t.unsqueeze(1)
+
+        # Autoregressive integration
         for t in tqdm(range(T), position=0, leave=True):
             x_out, h_out = self.net.forward(x_t, h_0 = h_t)
             x_t, h_t = x_out, h_out
@@ -321,7 +353,7 @@ class RCN(ESN):
     def forward(self, input, h_0=None, return_states=False):
         """
         input : (batch, sequence_length, input_size)
-        h_0 : (batch, hidden_size)
+        h_0 : (batch, reservoir_size)
         """
         batch = input.shape[0]
 
@@ -329,22 +361,20 @@ class RCN(ESN):
             h_0 = input.new_zeros((batch, self.reservoir_size))
 
         next_layer_input = input  # (batch, sequence_length, input_size)
-        layer_outputs = []  # list of (batch, hidden_size)
+        layer_outputs = []  # list of (batch, reservoir_size)
         step_h = h_0
-        h_aug = h_0.new_zeros(batch, 2*self.reservoir_size)
         for i in range(next_layer_input.shape[1]):
             x_t = next_layer_input[:, i]
-            h = self.forward_reservoir(x_t, step_h)  # (batch, hidden_size)
+            h = self.forward_reservoir(x_t, step_h)  # (batch, reservoir_size)
             if return_states:
                 layer_outputs.append(h)
             else:
                 # readout is the map (h_t-1, h_t) -> y_t
-                h_aug[:, :self.reservoir_size] = step_h
-                h_aug[:, self.reservoir_size: ] = h
+                h_aug = torch.cat([step_h, h], dim=-1)
                 layer_outputs.append(self.readout(h_aug))
             step_h = h
         h_n = step_h
-        layer_outputs = torch.stack(layer_outputs, axis=1)
+        layer_outputs = torch.stack(layer_outputs, axis=1) # (batch, sequence_length, output_size or reservoir_size)
         return layer_outputs, h_n
 
 
@@ -367,9 +397,9 @@ class RCNModel(ESNModel):
             x, y = torch.tensor(self.dataloader_train.dataset.input_data, dtype=torch.float64), torch.tensor(
                 self.dataloader_train.dataset.output_data, dtype=torch.float64
             )
-            _out, _ = self.net(x.to(self.device), return_states=True) # (batch, sequence_length + offset, hidden_size)
-            _out = _out[:, self.offset :]
-            y = y[ :, self.offset + 1 :]
+            _out, _ = self.net(x.to(self.device), return_states=True) # (batch, sequence_length + offset, reservoir_size)
+            _out = _out[:, self.offset :] # (batch, sequence_length, reservoir_size)
+            y = y[ :, self.offset + 1 :] # (batch, sequence_length-1, output_size)
 
             # readout is trained  to learn (h_t-1, h_t) -> y_t
             batch, sequence_length = _out.shape[0], _out.shape[1]
@@ -377,7 +407,7 @@ class RCNModel(ESNModel):
             out[:, :, :self.net.reservoir_size] = _out[:, :-1, :]
             out[:, :, self.net.reservoir_size:] = _out[:, 1:, :]
             out_np = out.reshape(-1, out.shape[-1]).detach().cpu().numpy()
-            y_np = y.reshape(-1, self.net.input_size).detach().cpu().numpy()
+            y_np = y.reshape(-1, self.net.output_size).detach().cpu().numpy()
 
             print(out_np.shape)
             print(y_np.shape)
@@ -388,8 +418,8 @@ class RCNModel(ESNModel):
                 torch.tensor(clf.coef_, dtype=torch.float64).to(self.device)
             )
             self.net.readout.fc_layers[0].bias = torch.nn.Parameter(
-                torch.tensor(clf.intercept_, dtype=torch.float64).to(self.device)
-                # torch.zeros_like(self.net.readout.fc_layers[0].bias).to(self.device)
+                # torch.tensor(clf.intercept_, dtype=torch.float64).to(self.device)
+                torch.zeros_like(self.net.readout.fc_layers[0].bias).to(self.device)
             )
             sum_loss = self.criterion(self.net.readout(out), y.to(self.device)).detach().cpu().numpy()
             cnt = 1
@@ -425,9 +455,8 @@ class RCNModel(ESNModel):
         h_1 = h[:, self.net.reservoir_size:]
         x = self.net.readout(h) # (batch, input_size) (only works when inputs and outputs are same size)
 
-        h_aug = h.new_zeros(batch, 2*self.net.reservoir_size)
-        h_aug[:, :self.net.reservoir_size] = h_1
-        _, h_aug[:, self.net.reservoir_size:]= self.net(x.unsqueeze(1), h_1)
+        h_2 = self.net(x.unsqueeze(1), h_1)
+        h_aug = torch.cat([h_1, h_2], dim=-1)
 
         if input_is_numpy:
             # Convert back to original dtype and NumPy

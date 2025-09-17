@@ -37,15 +37,18 @@ else:
 dataset_train = Dataset(
     config["DATA"]["n_train"], config["DATA"]["l_trajectories"], config["DATA"]["step"], 
     config["DATA"]["dynamical_system_name"], config["DATA"]["parameters"], config["DATA"]["y0"], 
-    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'train'
+    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 
+    'train', config["DATA"]["normalize_data"]
 )
+shift, scale = dataset_train.shift, dataset_train.scale
 dataset_train.save_data()
 
 #%%
 dataset_val = Dataset(
     config["DATA"]["n_val"], config["DATA"]["l_trajectories"], config["DATA"]["step"], 
     config["DATA"]["dynamical_system_name"], config["DATA"]["parameters"], config["DATA"]["y0"], 
-    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'validate'
+    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"],
+    'validate', config["DATA"]["normalize_data"], shift, scale
 )
 dataset_val.save_data()
 
@@ -53,7 +56,8 @@ dataset_val.save_data()
 dataset_test = Dataset( 
     config["DATA"]["n_test"], config["DATA"]["l_trajectories"], config["DATA"]["step"], 
     config["DATA"]["dynamical_system_name"], config["DATA"]["parameters"], config["DATA"]["y0"], 
-    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 'test'
+    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 
+    'test', config["DATA"]["normalize_data"], shift, scale
 )
 dataset_test.save_data()
 

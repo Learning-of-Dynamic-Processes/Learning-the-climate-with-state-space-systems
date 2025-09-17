@@ -9,19 +9,20 @@ config["DATA"]["max_warmup"] = 1000
 config["DATA"]["step"] = 0.02
 config["DATA"]["y0"] = np.array([0,0,27]).astype(np.float64)
 config["DATA"]["sigma"] = 20
-config["DATA"]["n_train"] = 600
-config["DATA"]["n_val"] = 6
+config["DATA"]["n_train"] = 700
+config["DATA"]["n_val"] = 150
 config["DATA"]["n_test"] = 6
 config["DATA"]["l_trajectories"] = 4000
 config["DATA"]["l_trajectories_test"] = 5000
 config["DATA"]["data_type"] = torch.float64
 config["DATA"]["method"] = 'RK4'
 config["DATA"]["load_data"] = False
+config["DATA"]["normalize_data"] = True
 config["PATH"] = "lorenz/models/"
 
 config["TRAINING"] = {}
-config["TRAINING"]["epochs"] = 1000
-config["TRAINING"]["batch_size"] = 400
+config["TRAINING"]["epochs"] = 10000
+config["TRAINING"]["batch_size"] = 500
 config["TRAINING"]["learning_rate"] = 5e-3
 config["TRAINING"]["ridge"] = False
 config["TRAINING"]["dtype"] = torch.float64
@@ -31,14 +32,14 @@ config["TRAINING"]["device"] = "cpu"
 
 config["MODEL"] = {}
 # Number of variables to use when using the lorenz system
-config["MODEL"]["RC_type"] = "RCN"
+config["MODEL"]["RC_type"] = "ESN"
 config["MODEL"]["input_size"] = 3
-config["MODEL"]["hidden_size"] = []
+config["MODEL"]["hidden_size"] = [500,500,500,500,500]
 config["MODEL"]["reservoir_size"] = 2**11
 config["MODEL"]["scale_rec"] = 0.9
 config["MODEL"]["scale_in"] = 0.02
 config["MODEL"]["leaking_rate"] = 0.5
-config["TRAINING"]["ridge_factor"] = 1e-2
+config["TRAINING"]["ridge_factor"] = 1e-9
 
 # config["MODEL"]["leaking_rate"] = 0.5012724887553683
 # config["TRAINING"]["ridge_factor"] = 1e-3

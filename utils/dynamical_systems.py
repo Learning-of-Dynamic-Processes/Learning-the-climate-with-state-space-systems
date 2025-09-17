@@ -13,10 +13,10 @@ def iter_rk4(y, t, h, f, fargs=None):
         k3 = f(t + 0.5*h, y + 0.5*h*k2)
         k4 = f(t + h, y + h*k3)
     else:
-        k1 = f(t, y, fargs)
-        k2 = f(t + 0.5*h, y + 0.5*h*k1, fargs)
-        k3 = f(t + 0.5*h, y + 0.5*h*k2, fargs)
-        k4 = f(t + h, y + h*k3, fargs)
+        k1 = f(t, y, *fargs)
+        k2 = f(t + 0.5*h, y + 0.5*h*k1, *fargs)
+        k3 = f(t + 0.5*h, y + 0.5*h*k2, *fargs)
+        k4 = f(t + h, y + h*k3, *fargs)
 
     return y + (h/6.0)*(k1 + 2*k2 + 2*k3 + k4)  # (batch, n_dim)
 
@@ -25,7 +25,7 @@ def generate_points(batch, y0, sigma = 1, distribution = 'uniform', seed = None)
 
         n_dim = y0.shape[0]
 
-        y = np.array([y0 for _ in range(batch)])
+        y = np.tile(y0, (batch, 1))
 
         if distribution == "gaussian":
             y += rng.normal(0, sigma, (batch, n_dim))
@@ -34,28 +34,32 @@ def generate_points(batch, y0, sigma = 1, distribution = 'uniform', seed = None)
             y += rng.uniform(-sigma, sigma, (batch, n_dim))
 
         else:
-            print('No such distribution')
+            raise ValueError(f"No such distribution: {distribution}")
+
 
         return y
     
 
 class DS():
     def __init__(self, phi, n_dim, step = 1):
+        """
+        phi : dynamical system map taking parameters (y,t)
+        """
         self.phi = phi
         self.n_dim = n_dim
         self.step = step
 
-    def integrate(self, y0, T = 1, t0 = 0):
+    def integrate(self, y0, num_steps = 1, t0 = 0):
         """
-        Integrates forward over a batch for T time steps starting from t0
+        Integrates forward over a batch for num_steps time steps starting from t0
         y0 : (batch, n_dim)
         """
         batch = y0.shape[0]
-        y_sol = np.zeros((batch, T, self.n_dim))
+        y_sol = np.zeros((batch, num_steps, self.n_dim))
         y_step = y0 # (batch, n_dim)
         t_step = t0
 
-        for t in range(T):
+        for t in range(num_steps):
             y_step = self.phi(y_step, t_step)
             t_step += self.step
             y_sol[:,t,:] = y_step
