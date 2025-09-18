@@ -2,44 +2,78 @@ import torch
 import numpy as np
 
 config = {}
+
+
+config["MODEL"] = {}
+config["TRAINING"] = {}
 config["DATA"] = {}
+
+config["MODEL"]["RC_type"] = "RCN"
+config["TRAINING"]["ridge"] = False
+
+config["MODEL"]["input_size"] = 3
+
+if config["TRAINING"]["ridge"]:
+    config["MODEL"]["hidden_size"] = []
+else:
+    config["MODEL"]["hidden_size"] = [512, 512] #  [64, 64]
+
+if config["TRAINING"]["ridge"]:
+    if config["MODEL"]["RC_type"] == "ESN":
+        config["MODEL"]["reservoir_size"] = 2**10
+        config["MODEL"]["scale_rec"] = 1.2
+        config["MODEL"]["scale_in"] = 10
+        config["MODEL"]["leaking_rate"] = 0.9
+
+    elif config["MODEL"]["RC_type"] == "RCN":
+        config["MODEL"]["reservoir_size"] = 2**11
+        config["MODEL"]["scale_rec"] = 0.9
+        config["MODEL"]["scale_in"] = 10
+        config["MODEL"]["leaking_rate"] = 0.9
+
+        config["MODEL"]["scale_rec_list"] = [0.5] # [0.5, 0.9, 1.2] # [0.5, 0.7, 0.9, 1, 1.2, 1.5, 2, 3]
+        config["MODEL"]["scale_in_list"] = [0.5] # [0.5, 1, 5, 10, 20] # [0.5, 1, 1.5, 2, 5, 7, 10, 13, 17, 20, 30]
+        config["MODEL"]["leaking_rate_list"] = [0.5] # [0.5, 0.9, 1] # [0.2, 0.5, 0.7, 0.9, 0.99, 1]
+else:
+    if config["MODEL"]["RC_type"] == "ESN":
+        config["MODEL"]["reservoir_size"] = 2**5
+        config["MODEL"]["scale_rec"] = 1.2
+        config["MODEL"]["scale_in"] = 7
+        config["MODEL"]["leaking_rate"] = 0.9
+
+    elif config["MODEL"]["RC_type"] == "RCN":
+        config["MODEL"]["reservoir_size"] = 2**11
+        config["MODEL"]["scale_rec"] = .99
+        config["MODEL"]["scale_in"] = 10
+        config["MODEL"]["leaking_rate"] = 0.95
+
+config["TRAINING"]["epochs"] = 10
+config["TRAINING"]["batch_size"] = 10
+config["TRAINING"]["learning_rate"] = 5e-3
+config["TRAINING"]["dtype"] = torch.float64
+config["TRAINING"]["gh_num_eigenpairs"] = 100
+config["TRAINING"]["offset"] = 1000
+config["TRAINING"]["device"] = "cpu"
+config["TRAINING"]["ridge_factor"] = 1e-9
+
 config["DATA"]["dynamical_system_name"] = 'lorenz'
 config["DATA"]["parameters"] = (10, 8/3, 28)
 config["DATA"]["max_warmup"] = 1000
 config["DATA"]["step"] = 0.02
 config["DATA"]["y0"] = np.array([0,0,27]).astype(np.float64)
-config["DATA"]["sigma"] = 20
-config["DATA"]["n_train"] = 700
-config["DATA"]["n_val"] = 150
+config["DATA"]["initial_points_sd"] = 20
+config["DATA"]["n_train"] = 30
+config["DATA"]["n_val"] = 10
 config["DATA"]["n_test"] = 6
-config["DATA"]["l_trajectories"] = 4000
-config["DATA"]["l_trajectories_test"] = 5000
+config["DATA"]["l_trajectories"] = 1500
+config["DATA"]["l_trajectories_test"] = 3000
 config["DATA"]["data_type"] = torch.float64
 config["DATA"]["method"] = 'RK4'
 config["DATA"]["load_data"] = False
 config["DATA"]["normalize_data"] = True
 config["PATH"] = "lorenz/models/"
 
-config["TRAINING"] = {}
-config["TRAINING"]["epochs"] = 10000
-config["TRAINING"]["batch_size"] = 500
-config["TRAINING"]["learning_rate"] = 5e-3
-config["TRAINING"]["ridge"] = False
-config["TRAINING"]["dtype"] = torch.float64
-config["TRAINING"]["gh_num_eigenpairs"] = 100
-config["TRAINING"]["offset"] = 20
-config["TRAINING"]["device"] = "cpu"
 
-config["MODEL"] = {}
-# Number of variables to use when using the lorenz system
-config["MODEL"]["RC_type"] = "ESN"
-config["MODEL"]["input_size"] = 3
-config["MODEL"]["hidden_size"] = [500,500,500,500,500]
-config["MODEL"]["reservoir_size"] = 2**11
-config["MODEL"]["scale_rec"] = 0.9
-config["MODEL"]["scale_in"] = 0.02
-config["MODEL"]["leaking_rate"] = 0.5
-config["TRAINING"]["ridge_factor"] = 1e-9
 
 # config["MODEL"]["leaking_rate"] = 0.5012724887553683
 # config["TRAINING"]["ridge_factor"] = 1e-3

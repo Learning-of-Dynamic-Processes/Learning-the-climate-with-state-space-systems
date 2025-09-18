@@ -32,34 +32,62 @@ elif RC_type == 'RCN':
 else:
     print('RC not supported')
 
-
 #%%
 dataset_train = Dataset(
-    config["DATA"]["n_train"], config["DATA"]["l_trajectories"], config["DATA"]["step"], 
-    config["DATA"]["dynamical_system_name"], config["DATA"]["parameters"], config["DATA"]["y0"], 
-    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 
-    'train', config["DATA"]["normalize_data"]
+    num_trajectories = config["DATA"]["n_train"],
+    len_trajectories = config["DATA"]["l_trajectories"],
+    step = config["DATA"]["step"], 
+    dynamical_system_name = config["DATA"]["dynamical_system_name"],
+    parameters = config["DATA"]["parameters"],
+    initial_points_mean = config["DATA"]["y0"], 
+    initial_points_sd = config["DATA"]["initial_points_sd"],
+    data_type = config["DATA"]["data_type"],
+    method = config["DATA"]["method"],
+    load_data = config["DATA"]["load_data"], 
+    data_set_name = 'train',
+    normalize_data = config["DATA"]["normalize_data"]
 )
 shift, scale = dataset_train.shift, dataset_train.scale
 dataset_train.save_data()
 
 #%%
 dataset_val = Dataset(
-    config["DATA"]["n_val"], config["DATA"]["l_trajectories"], config["DATA"]["step"], 
-    config["DATA"]["dynamical_system_name"], config["DATA"]["parameters"], config["DATA"]["y0"], 
-    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"],
-    'validate', config["DATA"]["normalize_data"], shift, scale
+    num_trajectories = config["DATA"]["n_val"],
+    len_trajectories = config["DATA"]["l_trajectories"],
+    step = config["DATA"]["step"], 
+    dynamical_system_name = config["DATA"]["dynamical_system_name"],
+    parameters = config["DATA"]["parameters"],
+    initial_points_mean = config["DATA"]["y0"], 
+    initial_points_sd = config["DATA"]["initial_points_sd"],
+    data_type = config["DATA"]["data_type"],
+    method = config["DATA"]["method"],
+    load_data = config["DATA"]["load_data"], 
+    data_set_name = 'validate',
+    normalize_data = config["DATA"]["normalize_data"],
+    shift = shift,
+    scale = scale
 )
 dataset_val.save_data()
 
 #%%
-dataset_test = Dataset( 
-    config["DATA"]["n_test"], config["DATA"]["l_trajectories"], config["DATA"]["step"], 
-    config["DATA"]["dynamical_system_name"], config["DATA"]["parameters"], config["DATA"]["y0"], 
-    config["DATA"]["sigma"], config["DATA"]["data_type"], config["DATA"]["method"], config["DATA"]["load_data"], 
-    'test', config["DATA"]["normalize_data"], shift, scale
+dataset_test = Dataset(
+    num_trajectories = config["DATA"]["n_test"],
+    len_trajectories = config["DATA"]["l_trajectories_test"],
+    step = config["DATA"]["step"], 
+    dynamical_system_name = config["DATA"]["dynamical_system_name"],
+    parameters = config["DATA"]["parameters"],
+    initial_points_mean = config["DATA"]["y0"], 
+    initial_points_sd = config["DATA"]["initial_points_sd"],
+    data_type = config["DATA"]["data_type"],
+    method = config["DATA"]["method"],
+    load_data = config["DATA"]["load_data"], 
+    data_set_name = 'test',
+    normalize_data = config["DATA"]["normalize_data"],
+    shift = shift,
+    scale = scale
 )
 dataset_test.save_data()
+
 
 #%%
 fig = plt.figure()
@@ -82,14 +110,14 @@ dataloader_train = DataLoader(
     dataset_train,
     batch_size=config["TRAINING"]["batch_size"],
     shuffle=True,
-    num_workers=4,
+    num_workers=0,
     pin_memory=True,
 )
 dataloader_val = DataLoader(
     dataset_val,
     batch_size=config["TRAINING"]["batch_size"],
     shuffle=False,
-    num_workers=4,
+    num_workers=0,
     pin_memory=True,
 )
 

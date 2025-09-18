@@ -55,8 +55,8 @@ class Dataset:
                  step : float = 1,
                  dynamical_system_name : str = 'lorenz', 
                  parameters = lor_args, 
-                 initial_point : np.ndarray = None, 
-                 sigma : float = 1, 
+                 initial_points_mean : np.ndarray = None, 
+                 initial_points_sd : float = 1, 
                  data_type = torch.float64,
                  method : str = 'RK4',
                  load_data: bool = False,
@@ -98,7 +98,7 @@ class Dataset:
             time_array = np.arange(0, (len_trajectories+1)*step, step)
             self.ids = np.arange(num_trajectories)
             ds = dynamical_system(step, parameters, method)
-            init_conds = dyn_sys.generate_points(num_trajectories, initial_point, sigma)
+            init_conds = dyn_sys.generate_points(num_trajectories, initial_points_mean, initial_points_sd)
             trajectories = ds.integrate(init_conds, len_trajectories + 1)
 
             self.input_data = trajectories[:, :-1, :] # (num_trajectories, len_trajectories, n_dim)

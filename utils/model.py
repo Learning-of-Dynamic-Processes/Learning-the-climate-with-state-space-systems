@@ -31,7 +31,7 @@ class DenseStack(nn.Module):
             # Add fully connected layer
             self.fc_layers.append(nn.Linear(in_features, out_features))
             # Add activation function
-            self.acts.append(nn.GELU())
+            self.acts.append(nn.Tanh())
             in_features = out_features
             self.num_out_features = out_features
 
@@ -82,7 +82,8 @@ class ESN(nn.Module):
 
         # Reservoir
         W_in = torch.rand((reservoir_size, input_size)) - 1 / 2.0
-        W_hat = torch.randn((reservoir_size, reservoir_size))
+        W_hat = torch.rand((reservoir_size, reservoir_size)) - 1 / 2.0
+        # W_hat = torch.randn((reservoir_size, reservoir_size))
 
         W_in = scale_in * W_in
         W_hat = self.rescale_contractivity(W_hat, scale_rec, rec_rescaling_method)
@@ -192,52 +193,36 @@ class ESNModel:
                 torch.tensor(clf.coef_, dtype=torch.float64).to(self.device)
             )
             self.net.readout.fc_layers[0].bias = torch.nn.Parameter(
-                # torch.tensor(clf.intercept_, dtype=torch.float64).to(self.device)
-                torch.zeros_like(self.net.readout.fc_layers[0].bias).to(self.device)
+                torch.tensor(clf.intercept_, dtype=torch.float64).to(self.device)
+                # torch.zeros_like(self.net.readout.fc_layers[0].bias).to(self.device)
             )
             sum_loss = self.criterion(self.net.readout(out), y.to(self.device)).detach().cpu().numpy()
             cnt = 1
         else:
             self.net.train()
             cnt, sum_loss = 0, 0
-            for (x, y) in self.dataloader_train:
+
+            start_time = time.time()
+
+            for batch_idx, (x, y) in enumerate(tqdm(self.dataloader_train, desc="Training", unit="batch")):
                 self.optimizer.zero_grad()
                 out, _ = self.net(x.to(self.device))
-                loss = self.criterion(out[:, self.offset :], y[:, self.offset :].to(self.device))
+                loss = self.criterion(out[:, self.offset:], y[:, self.offset:].to(self.device))
                 loss.backward()
                 self.optimizer.step()
                 sum_loss += loss.detach().cpu().numpy()
                 cnt += 1
+
+                if (batch_idx + 1) % 50 == 0:
+                    elapsed = time.time() - start_time
+                    avg_time_per_batch = elapsed / (batch_idx + 1)
+                    print(f"[Batch {batch_idx+1}/{len(self.dataloader_train)}] "
+                        f"Avg batch time: {avg_time_per_batch:.4f}s | Elapsed: {elapsed:.2f}s")
+
             self.optimizer.zero_grad()
             self.scheduler.step(sum_loss / cnt)
         self.train_loss.append(sum_loss / cnt)
                 
-        # self.net.train()
-        # cnt, sum_loss = 0, 0
-
-        # start_time = time.time()
-
-        # # Wrap the dataloader with tqdm for a progress bar
-        # for batch_idx, (x, y) in enumerate(tqdm(self.dataloader_train, desc="Training", unit="batch")):
-        #     self.optimizer.zero_grad()
-        #     out, _ = self.net(x.to(self.device))
-        #     loss = self.criterion(out[:, self.offset:], y[:, self.offset:].to(self.device))
-        #     loss.backward()
-        #     self.optimizer.step()
-        #     sum_loss += loss.detach().cpu().numpy()
-        #     cnt += 1
-
-        #     # Print timing info every 50 batches (for example)
-        #     if (batch_idx + 1) % 50 == 0:
-        #         elapsed = time.time() - start_time
-        #         avg_time_per_batch = elapsed / (batch_idx + 1)
-        #         print(f"[Batch {batch_idx+1}/{len(self.dataloader_train)}] "
-        #             f"Avg batch time: {avg_time_per_batch:.4f}s | Elapsed: {elapsed:.2f}s")
-
-        # self.optimizer.zero_grad()
-        # self.scheduler.step(sum_loss / cnt)
-
-        # self.train_loss.append(sum_loss / cnt)
 
         return sum_loss / cnt
 
@@ -275,13 +260,14 @@ class ESNModel:
         h_trajectory = x_0.new_zeros(batch, warm_up_length + T, self.net.reservoir_size)
         
         # Warmup
-        h_trajectory[:, :warm_up_length, :], _ = self.net(x_0, h0, return_states = True)
+        x_trajectory[:, :warm_up_length, :] = x_0
+        x_t = x_trajectory[:, warm_up_length - 1, :]
+        x_t = x_t.unsqueeze(1)
+
+        h_trajectory[:, 0, :] = h0
+        h_trajectory[:, 1:warm_up_length + 1, :], _ = self.net(x_0, h0, return_states = True) # returns states h_1, ..., h_{warmup_length + 1}
         h_t = h_trajectory[:, warm_up_length - 1, :]
         
-        x_trajectory[:, :warm_up_length - 1, :] = x_0[:, 1:, :]
-        x_t = self.net.readout(h_t)
-        x_trajectory[:, warm_up_length - 1, :] = x_t
-        x_t = x_t.unsqueeze(1)
 
         # Autoregressive integration
         for t in tqdm(range(T), position=0, leave=True):
@@ -426,14 +412,24 @@ class RCNModel(ESNModel):
         else:
             self.net.train()
             cnt, sum_loss = 0, 0
-            for (x, y) in self.dataloader_train:
+
+            start_time = time.time()
+
+            for batch_idx, (x, y) in enumerate(tqdm(self.dataloader_train, desc="Training", unit="batch")):
                 self.optimizer.zero_grad()
                 out, _ = self.net(x.to(self.device))
-                loss = self.criterion(out[:, self.offset :], y[:, self.offset :].to(self.device))
+                loss = self.criterion(out[:, self.offset:], y[:, self.offset:].to(self.device))
                 loss.backward()
                 self.optimizer.step()
                 sum_loss += loss.detach().cpu().numpy()
                 cnt += 1
+
+                if (batch_idx + 1) % 50 == 0:
+                    elapsed = time.time() - start_time
+                    avg_time_per_batch = elapsed / (batch_idx + 1)
+                    print(f"[Batch {batch_idx+1}/{len(self.dataloader_train)}] "
+                        f"Avg batch time: {avg_time_per_batch:.4f}s | Elapsed: {elapsed:.2f}s")
+
             self.optimizer.zero_grad()
             self.scheduler.step(sum_loss / cnt)
         self.train_loss.append(sum_loss / cnt)
