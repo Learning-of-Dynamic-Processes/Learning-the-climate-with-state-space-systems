@@ -9,7 +9,7 @@ config["TRAINING"] = {}
 config["DATA"] = {}
 
 config["MODEL"]["RC_type"] = "RCN"
-config["TRAINING"]["ridge"] = False
+config["TRAINING"]["ridge"] = True
 
 config["MODEL"]["input_size"] = 3
 
@@ -28,12 +28,12 @@ if config["TRAINING"]["ridge"]:
     elif config["MODEL"]["RC_type"] == "RCN":
         config["MODEL"]["reservoir_size"] = 2**11
         config["MODEL"]["scale_rec"] = 0.9
-        config["MODEL"]["scale_in"] = 10
+        config["MODEL"]["scale_in"] = 20
         config["MODEL"]["leaking_rate"] = 0.9
 
-        config["MODEL"]["scale_rec_list"] = [0.5] # [0.5, 0.9, 1.2] # [0.5, 0.7, 0.9, 1, 1.2, 1.5, 2, 3]
-        config["MODEL"]["scale_in_list"] = [0.5] # [0.5, 1, 5, 10, 20] # [0.5, 1, 1.5, 2, 5, 7, 10, 13, 17, 20, 30]
-        config["MODEL"]["leaking_rate_list"] = [0.5] # [0.5, 0.9, 1] # [0.2, 0.5, 0.7, 0.9, 0.99, 1]
+        config["MODEL"]["scale_rec_list"] = [0.7, 0.9, 0.99, 1, 1.2, 1.5, 2, 3] # [0.7, 0.8, 0.9, 0.95, 0.99, 1, 1.1, 1.2, 1.5, 2, 2.5, 3]
+        config["MODEL"]["scale_in_list"] = [13, 16, 20, 23, 26] # [0.5, 1, 2, 5, 7, 10, 13, 17, 20, 25, 30]
+        config["MODEL"]["leaking_rate_list"] = [0.5, 0.75, 0.9, 0.95, 0.99, 1]  # [0.5, 0.7, 0.8, 0.9, 0.95, 0.99, 1]
 else:
     if config["MODEL"]["RC_type"] == "ESN":
         config["MODEL"]["reservoir_size"] = 2**5

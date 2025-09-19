@@ -3,6 +3,8 @@ import os
 
 import matplotlib.pyplot as plt
 import torch
+import numpy as np
+import itertools
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
@@ -108,15 +110,18 @@ dataloader_val = DataLoader(
 )
 
 #%%
+config["TRAINING"]["ridge"]
+#%%
 
-import itertools
-import math
+warmup = config["DATA"]["max_warmup"]
 scale_rec_list = config["MODEL"]["scale_rec_list"] 
 scale_in_list = config["MODEL"]["scale_in_list"]
 leaking_rate_list = config["MODEL"]["leaking_rate_list"]
 
 param_combs = itertools.product(scale_rec_list, scale_in_list, leaking_rate_list)
-total_combs = len(list(param_combs))
+total_combs = len(scale_rec_list) * len(scale_in_list) * len(leaking_rate_list)
+
+print(f"Total number of combinations {total_combs}")
 
 progress_bar = tqdm(
     param_combs,
@@ -124,29 +129,10 @@ progress_bar = tqdm(
     desc="Grid search",
 )
 
-network = Network(
-    config["MODEL"]["input_size"],
-    config["MODEL"]["reservoir_size"],
-    config["MODEL"]["hidden_size"],
-    config["MODEL"]["input_size"],
-    config["MODEL"]["scale_rec"],
-    config["MODEL"]["scale_in"],
-    config["MODEL"]["leaking_rate"],
-)
-
-model = Model(
-    dataloader_train,
-    dataloader_val,
-    network,
-    learning_rate=config["TRAINING"]["learning_rate"],
-    offset=config["TRAINING"]["offset"],
-    ridge_factor=config["TRAINING"]["ridge_factor"],
-    device=config["TRAINING"]["device"],
-)
-
-warmup = config["DATA"]["max_warmup"]
 
 best_val_err = 1
+val_errs = np.zeros(total_combs)
+param_id = 0
 
 for params in progress_bar:
     scale_rec, scale_in, leaking_rate = params
@@ -161,36 +147,91 @@ for params in progress_bar:
         leaking_rate
     )
 
-    model.net = network
+    model = Model(
+        dataloader_train,
+        dataloader_val,
+        network,
+        learning_rate=config["TRAINING"]["learning_rate"],
+        offset=config["TRAINING"]["offset"],
+        ridge_factor=config["TRAINING"]["ridge_factor"],
+        device=config["TRAINING"]["device"],
+    )    
+
     model.train(ridge=config["TRAINING"]["ridge"])
     val_loss = model.validate()
+    val_errs[param_id] = val_loss
+    param_id += 1
 
     if val_loss < best_val_err:
         best_val_err = val_loss
         best_comb = params
+        
+        predictions, _ = model.integrate(
+                torch.tensor(dataset_test.input_data[0, :warmup, :], dtype=torch.get_default_dtype()).unsqueeze(0).to(model.device),
+                T=dataset_test.input_data[0].shape[0] - warmup,
+            )
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(dataset_test.tt[:-1], dataset_test.input_data[0][:, 0], label="true")
+        if len(predictions.shape) > 1:
+            ax.plot(dataset_test.tt[:-1], predictions[:, :, 0].detach().squeeze(0), label="prediction")
+        else:
+            ax.plot(dataset_test.tt[:-1], predictions, label="prediction")
+        ax.axvline(x=dataset_test.tt[warmup], color="k")
+        ax.set_xlabel("$t$")
+        ax.set_ylabel("$x$")
+        folder = dynamical_system_name + "/fig"
+        os.makedirs(folder, exist_ok=True)  # creates the folder if it doesn't exist
 
+        params = '_rec_' + str(scale_rec) + '_in_' + str(scale_in) + '_leak_' + str(leaking_rate)
+        plt.savefig(os.path.join(folder, "predictions" + params + ".png"))
+        plt.close()
+
+#%%
+scale_rec, scale_in, leaking_rate = best_comb
     
-    predictions, _ = model.integrate(
+network = Network(
+    config["MODEL"]["input_size"],
+    config["MODEL"]["reservoir_size"],
+    config["MODEL"]["hidden_size"],
+    config["MODEL"]["input_size"],
+    scale_rec,
+    scale_in,
+    leaking_rate
+)
+
+model = Model(
+    dataloader_train,
+    dataloader_val,
+    network,
+    learning_rate=config["TRAINING"]["learning_rate"],
+    offset=config["TRAINING"]["offset"],
+    ridge_factor=config["TRAINING"]["ridge_factor"],
+    device=config["TRAINING"]["device"],
+)
+
+predictions, _ = model.integrate(
         torch.tensor(dataset_test.input_data[0, :warmup, :], dtype=torch.get_default_dtype()).unsqueeze(0).to(model.device),
         T=dataset_test.input_data[0].shape[0] - warmup,
     )
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.plot(dataset_test.tt[:-1], dataset_test.input_data[0][:, 0], label="true")
-    if len(predictions.shape) > 1:
-        ax.plot(dataset_test.tt[:-1], predictions[:, :, 0].detach().squeeze(0), label="prediction")
-    else:
-        ax.plot(dataset_test.tt[:-1], predictions, label="prediction")
-    ax.axvline(x=dataset_test.tt[warmup], color="k")
-    ax.set_xlabel("$t$")
-    ax.set_ylabel("$x$")
-    folder = dynamical_system_name + "/fig"
-    os.makedirs(folder, exist_ok=True)  # creates the folder if it doesn't exist
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.plot(dataset_test.tt[:-1], dataset_test.input_data[0][:, 0], label="true")
+if len(predictions.shape) > 1:
+    ax.plot(dataset_test.tt[:-1], predictions[:, :, 0].detach().squeeze(0), label="prediction")
+else:
+    ax.plot(dataset_test.tt[:-1], predictions, label="prediction")
+ax.axvline(x=dataset_test.tt[warmup], color="k")
+ax.set_xlabel("$t$")
+ax.set_ylabel("$x$")
+folder = dynamical_system_name + "/fig"
+os.makedirs(folder, exist_ok=True)  # creates the folder if it doesn't exist
 
-    params = '_rec_' + str(scale_rec) + '_in_' + str(scale_in) + '_leak_' + str(leaking_rate)
-    plt.savefig(os.path.join(folder, "predictions" + params + ".png"))
-    plt.close()
+params = '_rec_' + str(scale_rec) + '_in_' + str(scale_in) + '_leak_' + str(leaking_rate)
+plt.savefig(os.path.join(folder, "predictions" + params + ".png"))
+plt.close()
 
 # %%
-print(best_comb)
-print(best_val_err)
+print(f"Best combintation {best_comb}")
+print(f"Best validation error {best_val_err}")
+# %%
