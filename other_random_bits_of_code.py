@@ -152,3 +152,99 @@ alpha = 0.05
 sample_size = (2/bd)**2 * (2 + np.sqrt( - np.log(alpha/2)))**2
 sample_size
 # %%
+
+#%% calculate distance between distributions for trajectories
+name = "dist_trajs_truetrue_12" + tag + "_model_"
+name1 = "nu1_trajs_true" + tag + "_model_"
+name2 = "nu2_trajs_true" + tag + "_model_"
+samples_12 = Two_Sample(nu1_trajs_true,
+                        nu2_trajs_true, 
+                        load_samples,
+                        load_sample_dists,
+                        folder + "/", 
+                        name, 
+                        name1,
+                        name2)
+
+if not load_sample_dists:
+    sigma_kernel = samples_12.median_dist(100)
+    print(f"median distance between points (averaged over time) is {sigma_kernel}")
+    samples_12.calculate_dist(sigma = sigma_kernel, biased = True,
+                               linear_time = False, enforce_equal=False)
+    samples_12.calculate_dist(sigma = sigma_kernel, biased = False,
+                               linear_time = False, enforce_equal=True)
+    samples_12.calculate_dist(sigma = sigma_kernel, biased = False,
+                               linear_time = True, enforce_equal=True)
+
+
+#%% calculate distance between distributions for trajectories
+name = "dist_trajs_truepred_11" + tag + "_model_"
+name1 = "nu1_trajs_true" + tag + "_model_"
+name2 = "nu1_trajs_pred" + tag+ "_model_"
+samples_11 = Two_Sample(nu1_trajs_true,
+                        nu1_trajs_pred, 
+                        load_samples,
+                        load_sample_dists,
+                        folder + "/", 
+                        name, 
+                        name1,
+                        name2)
+
+if not load_sample_dists:
+    samples_11.calculate_dist(sigma = sigma_kernel, biased = True,
+                               linear_time = False, enforce_equal=False)
+    samples_11.calculate_dist(sigma = sigma_kernel, biased = False,
+                               linear_time = False, enforce_equal=True)
+    samples_11.calculate_dist(sigma = sigma_kernel, biased = False,
+                               linear_time = True, enforce_equal=True)
+# dist_trajs_truepred_11 = samples_11.dist
+#%% calculate distance between distributions for ESN trajectories
+sigma_kernel = 1
+
+dist_trajs_truepred_11 = meas.mmd_rbf_seq(nu1_trajs_true, nu1_trajs_pred)
+fig, ax = plt.figure(), plt.axes()
+ax.plot(dist_trajs_truepred_11)
+
+np.save(os.path.join(folder, "dist_trajs_truepred_11"+ tag), dist_trajs_truepred_11)
+plt.savefig(os.path.join(folder, "dist_trajs_truepred_11"+ tag))
+plt.close()
+
+#%%
+dist_trajs_truepred_22 = meas.mmd_rbf_seq(nu2_trajs_true, nu2_trajs_pred)
+fig, ax = plt.figure(), plt.axes()
+ax.plot(dist_trajs_truepred_22)
+
+np.save(os.path.join(folder, "dist_trajs_truepred_22"+ tag), dist_trajs_truepred_22)
+plt.savefig(os.path.join(folder, "dist_trajs_truepred_22"+ tag))
+plt.close()
+
+#%%
+dist_trajs_truepred_12 = meas.mmd_rbf_seq(nu1_trajs_true, nu2_trajs_pred)
+fig, ax = plt.figure(), plt.axes()
+ax.plot(dist_trajs_truepred_12)
+
+np.save(os.path.join(folder, "dist_trajs_truepred_12"+ tag), dist_trajs_truepred_12)
+plt.savefig(os.path.join(folder, "dist_trajs_truepred_12"+ tag))
+plt.close()
+
+#%%
+dist_trajs_truepred_21 = meas.mmd_rbf_seq(nu2_trajs_true, nu1_trajs_pred)
+fig, ax = plt.figure(), plt.axes()
+ax.plot(dist_trajs_truepred_21)
+
+np.save(os.path.join(folder, "dist_trajs_truepred_21"+ tag), dist_trajs_truepred_21)
+plt.savefig(os.path.join(folder, "dist_trajs_truepred_21"+ tag))
+plt.close()
+
+
+#%%
+sample_size_cut_off_two_sample_test(0.05, 0.05, '>eps', 0.01, False, 1)
+
+# %%
+two_sample_test(1000, 0.05, '>eps', 0.02, True, 1)
+# %%
+meas.two_sample_test(m, alpha = 0.05, H0 = '>eps', epsilon_sq = 0.15, biased = True)
+
+#%%
+meas.epsilon_sq_given_cut_off_two_sample_test(1000, 0.01, 0.05, '>eps', True)
+# %%

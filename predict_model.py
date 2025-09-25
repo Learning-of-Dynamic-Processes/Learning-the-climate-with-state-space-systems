@@ -153,11 +153,11 @@ if not load_samples:
 #%%
 print(folder)
 #%% calculate distance between distributions for trajectories
-name = "dist_trajs_truepred_12" + tag + "_model_"
+name = "dist_trajs_truetrue_12" + tag + "_model_"
 name1 = "nu1_trajs_true" + tag + "_model_"
-name2 = "nu2_trajs_pred" + tag + "_model_"
+name2 = "nu2_trajs_true" + tag + "_model_"
 samples_12 = Two_Sample(nu1_trajs_true,
-                        nu2_trajs_pred, 
+                        nu2_trajs_true, 
                         load_samples,
                         load_sample_dists,
                         folder + "/", 
@@ -168,13 +168,9 @@ samples_12 = Two_Sample(nu1_trajs_true,
 if not load_sample_dists:
     sigma_kernel = samples_12.median_dist(100)
     print(f"median distance between points (averaged over time) is {sigma_kernel}")
-    samples_12.calculate_dist(sigma = sigma_kernel, biased = True,
+    dists_12 = samples_12.calculate_dist(sigma = sigma_kernel, biased = True,
                                linear_time = False, enforce_equal=False)
-    samples_12.calculate_dist(sigma = sigma_kernel, biased = False,
-                               linear_time = False, enforce_equal=True)
-    samples_12.calculate_dist(sigma = sigma_kernel, biased = False,
-                               linear_time = True, enforce_equal=True)
-
+    
 
 #%% calculate distance between distributions for trajectories
 name = "dist_trajs_truepred_11" + tag + "_model_"
@@ -190,83 +186,47 @@ samples_11 = Two_Sample(nu1_trajs_true,
                         name2)
 
 if not load_sample_dists:
-    samples_11.calculate_dist(sigma = sigma_kernel, biased = True,
+    dists_11 = samples_11.calculate_dist(sigma = sigma_kernel, biased = True,
                                linear_time = False, enforce_equal=False)
-    samples_11.calculate_dist(sigma = sigma_kernel, biased = False,
-                               linear_time = False, enforce_equal=True)
-    samples_11.calculate_dist(sigma = sigma_kernel, biased = False,
-                               linear_time = True, enforce_equal=True)
+    
+#%%
+import importlib
+importlib.reload(meas)
+#%% plot the two distributions against each other
+
+m = samples_12.mu1.shape[0]
+print(f"sample size is {m}")
+epsilon_sq = 0.1
+time = dataset_test.tt[:-1]
+hline1 = meas.two_sample_test(m, alpha = 0.05, H0 = '==', biased = True)
+hline2 = meas.two_sample_test(m, alpha = 0.05, H0 = '>eps', epsilon_sq = epsilon_sq, biased = True)
+
+plt.figure(figsize=(8, 6))
+
+# Plot time series
+plt.plot(time, dists_11, label="MMD between $\mu_1$ and $\mu_2$ transported under Lorenz")
+plt.plot(time, dists_12, label="MMD between $\mu_1$ transported under Lorenz and proxy")
+
+plt.axvline(x=20, color="black", linestyle="--")
+plt.axhline(y=hline1, linestyle=":", label=f"Crit val $H_0: \mu_1 = \mu_2$") 
+plt.axhline(y=hline2, linestyle=":", label=f"Crit val $H_0: MMD(\mu_1, \mu_2)^2>{epsilon_sq}$")
+
+plt.yscale("log")
+plt.xlabel("Time")
+plt.ylabel("MMD")
+
+plt.xlim(0, time[-1]) 
+plt.ylim(0, 1e0)
+
+plt.legend()
+plt.savefig('MMD transport figure')
+plt.show()
 
 ###############################################################################
 ###############################################################################
 ###############################################################################
-# dist_trajs_truepred_11 = samples_11.dist
-#%% calculate distance between distributions for ESN trajectories
-sigma_kernel = 1
 
-dist_trajs_truepred_11 = meas.mmd_rbf_seq(nu1_trajs_true, nu1_trajs_pred)
-fig, ax = plt.figure(), plt.axes()
-ax.plot(dist_trajs_truepred_11)
-
-np.save(os.path.join(folder, "dist_trajs_truepred_11"+ tag), dist_trajs_truepred_11)
-plt.savefig(os.path.join(folder, "dist_trajs_truepred_11"+ tag))
-plt.close()
-
-#%%
-dist_trajs_truepred_22 = meas.mmd_rbf_seq(nu2_trajs_true, nu2_trajs_pred)
-fig, ax = plt.figure(), plt.axes()
-ax.plot(dist_trajs_truepred_22)
-
-np.save(os.path.join(folder, "dist_trajs_truepred_22"+ tag), dist_trajs_truepred_22)
-plt.savefig(os.path.join(folder, "dist_trajs_truepred_22"+ tag))
-plt.close()
-
-#%%
-dist_trajs_truepred_12 = meas.mmd_rbf_seq(nu1_trajs_true, nu2_trajs_pred)
-fig, ax = plt.figure(), plt.axes()
-ax.plot(dist_trajs_truepred_12)
-
-np.save(os.path.join(folder, "dist_trajs_truepred_12"+ tag), dist_trajs_truepred_12)
-plt.savefig(os.path.join(folder, "dist_trajs_truepred_12"+ tag))
-plt.close()
-
-#%%
-dist_trajs_truepred_21 = meas.mmd_rbf_seq(nu2_trajs_true, nu1_trajs_pred)
-fig, ax = plt.figure(), plt.axes()
-ax.plot(dist_trajs_truepred_21)
-
-np.save(os.path.join(folder, "dist_trajs_truepred_21"+ tag), dist_trajs_truepred_21)
-plt.savefig(os.path.join(folder, "dist_trajs_truepred_21"+ tag))
-plt.close()
-
-#%%
-
-def two_sample_test(m, alpha = 0.05, H0 = '===', epsilon = None, biased = True):
-    """
-    Test to differentiate between samples from two distributions.
-
-    Params
-        m : sample size (equal samples)
-        alpha : p-value
-        H0 : null hypothesis, options: '==', '>eps', '<eps'
-        epsilon : test value in case null is not '=='
-        biased : biased or unbiased statistic
-
-    Returns
-        squared critical value for acceptance/rejection
-    """
-
-def sample_size_two_sample_test(l_sq, h_sq, alpha = 0.05, biased = True):
-    """
-    Sample size required to perform a two sample test
-    to differentiate between samples from two distributions.
-
-    Params
-        l_sq, h_sq : low and high values (squared) to differentiate
-        alpha : p-value
-        biased : biased or unbiased statistic
-
-    Returns
-        sample size required to differentiate between high and low values
-    """
-
+# plot mu1, mu2 at time t=1000 and t=end, also under proxy
+# plot stationary distribution of proxy and true
+# make a function to make the sample smaller
+# %%
