@@ -197,7 +197,7 @@ def mmd_bound(alpha, epsilon, m, n, K = 1, biased = False):
 
 #%%
 
-def two_sample_test(m, alpha = 0.05, H0 = '===', epsilon_sq = None, biased = True, K = 1):
+def two_sample_test(m, alpha = 0.05, H0 = '==', epsilon_sq = None, biased = True, K = 1):
     """
     Test to differentiate between samples from two distributions.
 
