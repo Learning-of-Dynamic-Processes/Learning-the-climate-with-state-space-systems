@@ -166,15 +166,15 @@ fig, axes = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
 for i, ax in enumerate(axes):
     ax.plot(time_steps, true_traj[:, i], label="True")
     ax.plot(time_steps, pred_traj[:, i], label="Predicted")
-    ax.axvline(warmup_time, linestyle=":", label="Warmup" if i == 0 else None)
+    ax.axvline(warmup_time, linestyle=":", color = "black", label="Warmup" if i == 0 else None)
 
     ax.set_xlim(x_lim)
     ax.set_ylabel(coords[i])
     if i == 0:
         ax.legend(loc="upper right")
 
-axes[-1].set_xlabel("time")
-fig.suptitle("Prediction for one trajectory")
+axes[-1].set_xlabel("Time")
+# fig.suptitle("Prediction for one trajectory")
 fig.tight_layout(rect=[0, 0, 1, 0.96])  # leave space for suptitle
 
 figures_folder = folder + '/fig'
@@ -245,6 +245,8 @@ time = dataset_test.tt[:-1]
 hline1 = meas.two_sample_test(m, alpha = 0.05, H0 = '==', biased = True)
 hline2 = meas.two_sample_test(m, alpha = 0.05, H0 = '>eps', epsilon_sq = epsilon_sq, biased = True)
 
+print(f"test == crit val{hline1}")
+print(f"test >eps crit val{hline2}")
 plt.figure(figsize=(8, 6))
 
 # Plot time series
@@ -307,7 +309,7 @@ fig.suptitle("Densities", fontsize=16)
 plt.tight_layout(rect=[0, 0, 1, 0.95])
 
 # Save the figure
-fig_path = os.path.join(figures_folder, 'densisties_truetrue.png')
+fig_path = os.path.join(figures_folder, 'densities_truetrue.png')
 plt.savefig(fig_path, dpi=300, bbox_inches="tight")
 plt.show()
 
@@ -350,7 +352,56 @@ fig.suptitle("Densities", fontsize=16)
 plt.tight_layout(rect=[0, 0, 1, 0.95])
 
 # Save the figure
-fig_path = os.path.join(figures_folder, 'densisties_truepred.png')
+fig_path = os.path.join(figures_folder, 'densities_truepred.png')
+plt.savefig(fig_path, dpi=300, bbox_inches="tight")
+plt.show()
+
+#%%
+indices_plot = [0,2]
+mu1 = 100 * samples_12.mu1[: , warmup-1, indices_plot]
+mu2 = 100 * samples_12.mu2[: , warmup-1, indices_plot]
+mu3 = 100 * samples_11.mu2[:, warmup-1, indices_plot]
+mu4 = 100 * samples_12.mu1[: , -1, indices_plot]
+mu5 = 100 * samples_12.mu2[: , -1, indices_plot]
+mu6 = 100 * samples_11.mu2[:, -1, indices_plot]
+
+datasets = [mu2, mu1, mu3, mu5, mu4, mu6]
+titles   = [f"$\mu^2_t$ at t={warmup * step}", f"$\mu^1_t$ at t={warmup * step}", r"$\hat{\mu}^1_t$ at " + f"t={T_end * step}", f"$\mu^2_t$ at t={T_end * step}", f"$\mu^1_t$ at t={T_end * step}", r"$\hat{\mu}^1_t$ at" + f" t={T_end * step}"]
+
+xlim = (-20, 20)
+ylim = (0, 50)
+
+fig = plt.figure(figsize=(10, 8))
+gs = gridspec.GridSpec(2, 4, width_ratios=[1, 1, 1, 0.05])
+
+axes = [fig.add_subplot(gs[0,0]), fig.add_subplot(gs[0,1]), fig.add_subplot(gs[0,2]),
+        fig.add_subplot(gs[1,0]), fig.add_subplot(gs[1,1]), fig.add_subplot(gs[1,2])]
+
+for i, (data, ax) in enumerate(zip(datasets, axes)):
+    x = data[:, 0]
+    y = data[:, 1]
+    h = ax.hist2d(x, y, bins=100, range=[xlim, ylim], cmap="viridis")
+    
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    ax.set_xlabel("x")
+    ax.set_ylabel("z")
+    ax.set_title(titles[i])
+
+cax = fig.add_subplot(gs[:, 3])
+cbar = fig.colorbar(h[3], cax=cax)
+cbar.set_label("Counts")
+
+
+fig.text(0.16, 0.97, "(a)", ha="center", va="center", fontsize=14)
+fig.text(0.45, 0.97, "(b)", ha="center", va="center", fontsize=14)
+fig.text(0.74, 0.97, "(c)", ha="center", va="center", fontsize=14)
+
+# fig.suptitle("Densities", fontsize=16)
+plt.tight_layout(rect=[0, 0, 1, 0.95])
+
+# Save the figure
+fig_path = os.path.join(figures_folder, 'densities_truetruepred.png')
 plt.savefig(fig_path, dpi=300, bbox_inches="tight")
 plt.show()
 
@@ -429,7 +480,7 @@ fig_path = os.path.join(figures_folder, 'invariant_measures.png')
 plt.savefig(fig_path, dpi=300, bbox_inches="tight")
 plt.show()
 
-#%% calculate distance between trajectories
+#%% calculate distance between trajectories for one set of trajectories
 
 # true and predicted first trajectory
 traj_1, traj_2 = samples_11.mu1[0], samples_11.mu2[0]
@@ -460,9 +511,46 @@ plt.axvline(x=step * warmup, color="black", linestyle="--")
 
 plt.legend()
 plt.tight_layout()
-plt.show()
 
 fig_path = os.path.join(figures_folder, 'Trajectories distance figure.png')
+plt.savefig(fig_path, dpi=300)
+plt.show()
+
+
+#%%
+#%% calculate distance between trajectories average over all trajectories
+
+# true and predicted first trajectory
+traj_1, traj_2 = samples_11.mu1, samples_11.mu2
+diff_traj = traj_1 - traj_2
+dist_trajs_truepred = np.mean(np.linalg.norm(diff_traj, axis=2), axis=0)
+
+# comparing two trajectories under the true system
+traj_1, traj_2 = samples_12.mu1, samples_12.mu2
+diff_traj = traj_1 - traj_2
+dist_trajs_truetrue = np.mean(np.linalg.norm(diff_traj, axis=2), axis=0)
+
+time = dataset_test.tt[:-1]
+
+plt.figure(figsize=(8, 5))
+
+plt.plot(time, dist_trajs_truetrue, label="mean distance between $m_a$ and $m_b$ transported under Lorenz")
+plt.plot(time, dist_trajs_truepred, label="mean distance between $m_a$ transported under Lorenz and proxy")
+
+plt.yscale("log")
+plt.xlim(0, 80)       # example x range
+plt.ylim(0, 1)     # example y range; adjust to your data
+
+plt.xlabel("Time")
+plt.ylabel("Distance")
+# plt.title("Trajectory Distance Comparison", fontsize=14)
+
+plt.axvline(x=step * warmup, color="black", linestyle="--")
+
+plt.legend()
+plt.tight_layout()
+
+fig_path = os.path.join(figures_folder, 'Trajectories mean distance figure.png')
 plt.savefig(fig_path, dpi=300)
 plt.show()
 
@@ -482,4 +570,13 @@ plt.show()
 # also, why is the warmup so bad?
 # figure out why invariant measures aren't there
 # detach in integration of model, could make things faster, no need for grad in tensor
+
+# %%
+
+samples_11.dist[1000]
+
+# %%
+
+np.max(samples_12.mu1[:,:1000]-samples_12.mu2[:,:1000])
+
 # %%

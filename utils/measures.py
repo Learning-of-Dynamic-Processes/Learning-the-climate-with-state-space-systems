@@ -345,6 +345,41 @@ def epsilon_sq_given_cut_off_two_sample_test(m, z_sq, alpha = 0.05,  H0 = '>eps'
         
     return epsilon_sq
 
+def p_val_two_sample_test(m, z_sq, epsilon_sq = 0.1,  H0 = '>eps', biased = True, K = 1):
+    """
+    calculates the p-value given the statistic value
+
+    Params:
+        m : sample size
+        z_sq : value of statistic
+        epsilon_sq : in case H0 = '>eps', this is eps**2
+        H0 : null hypothesis, options: '>eps', '<eps'
+        biased : biased or unbiased statistic
+        K : 0 <= k(x,y) <= K for the kernel k
+
+    Returns
+        epsilon_sq value
+    """
+
+    if biased:
+        z = np.sqrt(z_sq)
+        eps = np.sqrt(epsilon_sq)
+        if H0 == '>eps':
+            delta = eps - z - 4 * np.sqrt(K/m)
+            if delta < 0:
+                assert 'negative delta'
+            p_val = 2 * np.exp( - delta**2 * m / (4 * K))
+        elif H0 == '==':
+            delta = z - np.sqrt(2*K / m)
+            if delta < 0:
+                assert 'negative delta'
+            p_val = np.exp( - delta**2 * m / (4 * K))
+        else:
+            assert 'invalid null hypothesis H0'
+    else:
+        assert 'unbiased cased not coded yet'
+    return p_val
+
 # #%%
 # import matplotlib.pyplot as plt
 
