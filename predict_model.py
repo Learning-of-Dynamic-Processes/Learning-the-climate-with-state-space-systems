@@ -247,7 +247,7 @@ hline2 = meas.two_sample_test(m, alpha = 0.05, H0 = '>eps', epsilon_sq = epsilon
 
 print(f"test == crit val{hline1}")
 print(f"test >eps crit val{hline2}")
-plt.figure(figsize=(8, 6))
+plt.figure(figsize=(8, 5))
 
 # Plot time series
 plt.plot(time, dists_12, label=r"MMD$^2$ between $\mu^1_{\tau}$ and $\mu^2_{\tau}$")
@@ -263,6 +263,7 @@ plt.ylabel("MMD$^2$")
 
 plt.xlim(0, 80) 
 plt.ylim(0, 1e0)
+plt.tight_layout()
 
 plt.legend()
 fig_path = os.path.join(figures_folder, 'MMD transport figure.png')
