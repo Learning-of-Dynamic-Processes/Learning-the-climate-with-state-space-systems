@@ -597,30 +597,3 @@ plt.tight_layout()
 fig_path = os.path.join(figures_folder, 'Trajectories mean distance figure.png')
 plt.savefig(fig_path, dpi=300)
 plt.show()
-
-
-
-###############################################################################
-###############################################################################
-###############################################################################
-
-# plot mu1, mu2 at time t=1000 and t=end, also under proxy
-# plot stationary distribution of proxy and true
-# plot true and proxy for one trajectory
-# make a function to make the sample smaller
-
-# 29 Sep 2025
-# check that the true and predicted trajectories are the same ones. They don't look the same above.
-# also, why is the warmup so bad?
-# figure out why invariant measures aren't there
-# detach in integration of model, could make things faster, no need for grad in tensor
-
-# %%
-
-samples_11.dist[1000]
-
-# %%
-
-np.max(samples_12.mu1[:,:1000]-samples_12.mu2[:,:1000])
-
-# %%
