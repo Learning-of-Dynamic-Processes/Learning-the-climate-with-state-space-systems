@@ -1,7 +1,0 @@
-pyproject.toml
-lorenz/config.py
-state_space_sys_trans.egg-info/PKG-INFO
-state_space_sys_trans.egg-info/SOURCES.txt
-state_space_sys_trans.egg-info/dependency_links.txt
-state_space_sys_trans.egg-info/requires.txt
-state_space_sys_trans.egg-info/top_level.txt
