@@ -13,7 +13,7 @@ from utils.model import ESN, ESNModel, ESNModel_DS, RCN, RCNModel,  RCNModel_DS,
 import utils.measures as meas
 import utils.dynamical_systems as ds
 
-dynamical_system_name = 'lorenz' #comment
+dynamical_system_name = 'lorenz' 
 
 if dynamical_system_name == 'lorenz':
     from lorenz.config import config
