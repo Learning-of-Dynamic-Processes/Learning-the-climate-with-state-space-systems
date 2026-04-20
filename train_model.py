@@ -216,3 +216,4 @@ ax.set_zlabel('z')
 
 plt.savefig(os.path.join(folder, "predictions3d.png"))
 plt.close()
+# %%

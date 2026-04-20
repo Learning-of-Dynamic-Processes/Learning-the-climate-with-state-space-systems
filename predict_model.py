@@ -1,3 +1,14 @@
+# #%%
+# To do:
+# Check that everything is loading and running as I intend
+# Clean up this code 
+# Implement PCA training for readout
+# write wasserstein distance functions to calculate
+# calculate wasserstein distances for each coordinate as it changes over time, over the 1000 initial conditions
+# and plot together in one graph
+# calculate wasserstein distance for one initial condition as it converges
+#     plot thier magrinal distributions too
+
 #%%
 import os
 
@@ -13,7 +24,7 @@ from utils.model import ESN, ESNModel, ESNModel_DS, RCN, RCNModel,  RCNModel_DS,
 import utils.measures as meas
 import utils.dynamical_systems as ds
 
-dynamical_system_name = 'lorenz' 
+dynamical_system_name = 'lorenz'
 
 if dynamical_system_name == 'lorenz':
     from lorenz.config import config
@@ -107,6 +118,9 @@ if not load_samples:
         torch.tensor(dataset_test.input_data[:, :warmup, :], dtype=torch.get_default_dtype()).to(model.device),
         T=T_end - warmup,
     )
+
+#%%
+print(load_samples)
 
 #%%
 folder = dynamical_system_name + "/predict"
