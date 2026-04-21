@@ -6,3 +6,6 @@ __pycache__
 
 # dependency folders
 state_space_sys_trans.egg-info/
+
+# other files
+code_dump.py

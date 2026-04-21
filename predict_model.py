@@ -107,8 +107,8 @@ model.load_network(model_name)
 
 #%%
 load_samples = config["DATA"]["load_samples"]
-load_sample_dists = config["DATA"]["load_sample_dists"]
-
+load_sample_dists_mmd = config["DATA"]["load_sample_dists_mmd"]
+load_sample_dists_wass1 = config["DATA"]["load_sample_dists_wass1"]
 #%% predict
 warmup = config["DATA"]["max_warmup"]
 T_end = dataset_test.input_data.shape[1]
@@ -118,9 +118,6 @@ if not load_samples:
         torch.tensor(dataset_test.input_data[:, :warmup, :], dtype=torch.get_default_dtype()).to(model.device),
         T=T_end - warmup,
     )
-
-#%%
-print(load_samples)
 
 #%%
 folder = dynamical_system_name + "/predict"
@@ -163,7 +160,7 @@ else:
     np.save(os.path.join(folder, "nu2_trajs_true"+ tag), nu2_trajs_true)
     np.save(os.path.join(folder, "nu2_trajs_pred"+ tag), nu2_trajs_pred)
 
-#%%
+#%% check prediction for one trajectory
 i = 0 #np.random.randint(1000)
 
 true_traj = nu1_trajs_true[i]
@@ -206,46 +203,58 @@ if not load_samples:
 
     meas.plot_measure(nu2, (0,2), num_bins, 'hist')
 
-#%% calculate distance between distributions for trajectories
+#%% calculate distance between distributions for trajectories samples_12_true
 name = "dist_trajs_truetrue_12" + tag + "_model_"
 name1 = "nu1_trajs_true" + tag
 name2 = "nu2_trajs_true" + tag
 samples_12 = Two_Sample(nu1_trajs_true,
                         nu2_trajs_true, 
                         load_samples,
-                        load_sample_dists,
+                        load_sample_dists_mmd,
+                        load_sample_dists_wass1,
                         folder + "/", 
                         name, 
                         name1,
                         name2)
 
-if not load_sample_dists:
+if not load_sample_dists_mmd:
     sigma_kernel = samples_12.median_dist(100)
     print(f"median distance between points (averaged over time) is {sigma_kernel}")
-    dists_12 = samples_12.calculate_dist(sigma = sigma_kernel, biased = True,
+    dists_12_mmd = samples_12.calculate_dist_mmd(sigma = sigma_kernel, biased = True,
                                linear_time = False, enforce_equal=False)
 else:
-    dists_12 = samples_12.dist
+    dists_12_mmd = samples_12.dist_mmd
     
+if not load_sample_dists_wass1:
+    dists_12_wass1 = samples_12.calculate_dists_wass1(None)
+else:
+    dists_12_wass1 = samples_12.dists_wass1
 
-#%% calculate distance between distributions for trajectories
+#%% calculate distance between distributions for trajectories samples_1_truepred
 name = "dist_trajs_truepred_11" + tag + "_model_"
 name1 = "nu1_trajs_true" + tag
 name2 = "nu1_trajs_pred" + tag
 samples_11 = Two_Sample(nu1_trajs_true,
                         nu1_trajs_pred, 
                         load_samples,
-                        load_sample_dists,
+                        load_sample_dists_mmd,
+                        load_sample_dists_wass1,
                         folder + "/", 
                         name, 
                         name1,
                         name2)
 
-if not load_sample_dists:
-    dists_11 = samples_11.calculate_dist(sigma = sigma_kernel, biased = True,
+if not load_sample_dists_mmd:
+    dists_11_mmd = samples_11.calculate_dist_mmd(sigma = sigma_kernel, biased = True,
                                linear_time = False, enforce_equal=False)
 else:
-    dists_11 = samples_11.dist
+    dists_11_mmd = samples_11.dist_mmd
+
+    
+if not load_sample_dists_wass1:
+    dists_11_wass1 = samples_11.calculate_dists_wass1()
+else:
+    dists_11_wass1 = samples_11.dists_wass1
     
 # #%%
 # import importlib
@@ -264,8 +273,8 @@ print(f"test >eps crit val{hline2}")
 plt.figure(figsize=(8, 5))
 
 # Plot time series
-plt.plot(time, dists_12, label=r"MMD$^2$ between $\mu^1_{\tau}$ and $\mu^2_{\tau}$")
-plt.plot(time, dists_11, label=r"MMD$^2$ between $\mu^1_{\tau}$ and $\hat{\mu}^1_{\tau}$")
+plt.plot(time, dists_12_mmd, label=r"MMD$^2$ between $\mu^1_{\tau}$ and $\mu^2_{\tau}$")
+plt.plot(time, dists_11_mmd, label=r"MMD$^2$ between $\mu^1_{\tau}$ and $\hat{\mu}^1_{\tau}$")
 
 plt.axvline(x=warmup * step, color="black", linestyle="--")
 plt.axhline(y=hline1, linestyle=":", label=f"Crit val $H_0: \mu^a = \mu^b$") 
@@ -284,41 +293,37 @@ fig_path = os.path.join(figures_folder, 'MMD transport figure.pdf')
 plt.savefig(fig_path, dpi=300)
 plt.show()
 
-#%% plot the p_vals for the distributions against each other
+#%% plot the wass_dist between the distributions against each other
 
-import importlib
-importlib.reload(meas)
-
-#%%
 m = samples_12.mu1.shape[0]
 print(f"sample size is {m}")
 epsilon_sq = 0.1
 time = dataset_test.tt[:-1]
+# hline1 = meas.two_sample_test(m, alpha = 0.05, H0 = '==', biased = True)
+# hline2 = meas.two_sample_test(m, alpha = 0.05, H0 = '>eps', epsilon_sq = epsilon_sq, biased = True)
 
-pvals_12_eq = meas.p_val_two_sample_test(m, dists_12, epsilon_sq, H0 = '==', biased = True)
-pvals_12_uneq = meas.p_val_two_sample_test(m, dists_12, epsilon_sq, H0 = '>eps', biased = True)
-pvals_11_eq = meas.p_val_two_sample_test(m, dists_11, epsilon_sq, H0 = '==', biased = True)
-pvals_11_uneq = meas.p_val_two_sample_test(m, dists_11, epsilon_sq, H0 = '>eps', biased = True)
-
-plt.figure(figsize=(8, 6))
+# print(f"test == crit val{hline1}")
+# print(f"test >eps crit val{hline2}")
+plt.figure(figsize=(8, 5))
 
 # Plot time series
-plt.plot(time, pvals_12_eq, label=r"p-value H$_0: \mu^1_{\tau} = \mu^2_{\tau}$")
-plt.plot(time, pvals_12_uneq, label=r"p-value H$_0: MMD(\mu^1_{\tau},\mu^2_{\tau})^2>$"+str(epsilon_sq))
-plt.plot(time, pvals_11_eq, label=r"p-value H$_0: \mu^1_{\tau} = \hat{\mu}^1_{\tau}$")
-plt.plot(time, pvals_11_uneq, label=r"p-value H$_0: MMD(\mu^1_{\tau},\hat{\mu}^1_{\tau})^2>$"+str(epsilon_sq))
+plt.plot(time, dists_12_wass1, label=r"MMD$^2$ between $\mu^1_{\tau}$ and $\mu^2_{\tau}$")
+plt.plot(time, dists_11_wass1, label=r"MMD$^2$ between $\mu^1_{\tau}$ and $\hat{\mu}^1_{\tau}$")
 
 plt.axvline(x=warmup * step, color="black", linestyle="--")
+plt.axhline(y=hline1, linestyle=":", label=f"Crit val $H_0: \mu^a = \mu^b$") 
+plt.axhline(y=hline2, linestyle=":", label=f"Crit val $H_0: MMD(\mu^a, \mu^b)^2>{epsilon_sq}$", color='red')
 
 plt.yscale("log")
-plt.xlabel("Time")
-plt.ylabel("p-value")
+plt.xlabel(r"Time $\tau$")
+plt.ylabel("MMD$^2$")
 
 plt.xlim(0, 80) 
-plt.ylim(1e-1, 1e0)
+plt.ylim(0, 1e0)
+plt.tight_layout()
 
 plt.legend()
-fig_path = os.path.join(figures_folder, 'MMD transport figure_2.pdf')
+fig_path = os.path.join(figures_folder, 'Wass1 transport figure.pdf')
 plt.savefig(fig_path, dpi=300)
 plt.show()
 
@@ -509,7 +514,7 @@ mu1 = mu[:, indices_plot]
 mu2 = 100 * mu_ESN[:, indices_plot] # rescale to actual scale
 
 datasets = [mu1, mu2]
-titles   = ["Lorenz", "Proxy"]
+titles   = ["(a) Lorenz", "(b) Proxy"]
 
 xlim = (-20, 20)
 ylim = (-45, 50)
@@ -533,7 +538,7 @@ cax = fig.add_subplot(gs[:, 2])
 cbar = fig.colorbar(h[3], cax=cax)
 cbar.set_label("Counts (log scale)")
 
-fig.suptitle("Invariant measures", fontsize=16)
+# fig.suptitle("Invariant measures", fontsize=16)
 plt.tight_layout(rect=[0, 0, 1, 0.95])
 
 # Save the figure

@@ -380,6 +380,54 @@ def p_val_two_sample_test(m, z_sq, epsilon_sq = 0.1,  H0 = '>eps', biased = True
         assert 'unbiased cased not coded yet'
     return p_val
 
+def wasserstein1_seq(x: np.ndarray, y: np.ndarray, coord_list: list = None) -> np.ndarray:
+    """
+    Computes Wasserstein-1 distance over a sequence of time steps for a given coordinate.
+    Args:
+        x: (n, T, d) array
+        y: (m, T, d) array
+        coord_list: list of coordinate index (0 <= c <= d-1)
+    Returns:
+        dists: (num_coords, T) array of Wasserstein-1 distances for each coordinate per time step
+    """
+    if coord_list == None:
+        coord_list = range(x.shape[2])
+
+    dists = np.zeros((len(coord_list), x.shape[1]))
+    
+    for (i,c) in enumerate(coord_list):
+        xc = x[:, :, c]  # (n, T)
+        yc = y[:, :, c]  # (m, T)
+
+        xc_sorted = np.sort(xc, axis=0)  # (n, T)
+        yc_sorted = np.sort(yc, axis=0)  # (m, T)
+
+        # If n == m, W1 = mean |xc_sorted - yc_sorted| over samples
+        if xc_sorted.shape[0] == yc_sorted.shape[0]:
+            dists[i] = np.mean(np.abs(xc_sorted - yc_sorted), axis=0)  # (T,)
+        else:
+            # If n != m, interpolate the smaller onto the larger quantile grid
+            n, m = xc_sorted.shape[0], yc_sorted.shape[0]
+            quantiles_n = (np.arange(n) + 0.5) / n
+            quantiles_m = (np.arange(m) + 0.5) / m
+            quantiles_common = np.union1d(quantiles_n, quantiles_m)  # (K,)
+
+            # Interpolate both CDFs onto the common quantile grid: (K, T)
+            x_interp = np.array([
+                np.interp(quantiles_common, quantiles_n, xc_sorted[:, t])
+                for t in range(xc_sorted.shape[1])
+            ]).T  # (K, T)
+
+            y_interp = np.array([
+                np.interp(quantiles_common, quantiles_m, yc_sorted[:, t])
+                for t in range(yc_sorted.shape[1])
+            ]).T  # (K, T)
+
+            dq = np.diff(quantiles_common, prepend=0)  # weights (K,)
+            dists[i] = (dq[:, None] * np.abs(x_interp - y_interp)).sum(axis=0)  # (T,)
+
+    
+    return dists
 # #%%
 # import matplotlib.pyplot as plt
 

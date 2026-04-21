@@ -187,7 +187,7 @@ class ESNModel:
             out_np = out.reshape(-1, out.shape[-1]).detach().cpu().numpy()
             y_np = y.reshape(-1, self.net.input_size).detach().cpu().numpy()
 
-            clf = Ridge(alpha=self.ridge_factor)
+            clf = Ridge(alpha=self.ridge_factor, solver='svd')
             clf.fit(out_np, y_np)
             self.net.readout.fc_layers[0].weight = torch.nn.Parameter(
                 torch.tensor(clf.coef_, dtype=torch.float64).to(self.device)

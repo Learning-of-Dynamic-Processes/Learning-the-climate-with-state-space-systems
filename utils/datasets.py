@@ -188,7 +188,8 @@ class Two_Sample:
                  mu1 : np.ndarray = None,
                  mu2 : np.ndarray = None,
                  load_data : bool = False,
-                 load_dist : bool = False,
+                 load_dist_mmd : bool = False,
+                 load_dist_wass1 : bool = False,
                  path : str = None,
                  name : str = None,
                  name1 : str = None,
@@ -209,33 +210,50 @@ class Two_Sample:
             self.mu1 = mu1
             self.mu2 = mu2
 
-        if load_dist:
-            self.load_dist()
+        if load_dist_mmd:
+            self.load_dist_mmd()
+        if load_dist_wass1:
+            self.load_dists_wass1()
         else:
-            self.dist = None
+            self.dist_mmd = None
+            self.dists_wass1 = None
         
     def load_data(self):
         print(self.path + self.name1 + '.npy')
         self.mu1 = np.load(self.path + self.name1 + '.npy')
         self.mu2 = np.load(self.path + self.name2 + '.npy')
 
-    def load_dist(self):
-        self.dist = np.load(self.path + self.name + '.npy')
+    def load_dist_mmd(self):
+        self.dist_mmd = np.load(self.path + self.name + '_mmd.npy')
+        
+    def load_dists_wass1(self):
+        self.dists_wass1 = np.load(self.path + self.name + '_wass1.npy')
 
     def save_data(self):
         np.save(self.path + self.name1, self.mu1)
         np.save(self.path + self.name2, self.mu2)
 
-    def save_dist(self):
-        np.save(self.path + self.name, self.dist)
+    def save_dist_mmd(self):
+        np.save(self.path + self.name + '_mmd', self.dist_mmd)
 
-    def plot_dists(self, plot_name):
+    def save_dists_wass1(self):
+        np.save(self.path + self.name + '_wass1', self.dists_wass1)
+
+    def plot_dists_mmd(self, plot_name):
         fig, ax = plt.figure(), plt.axes()
-        ax.plot(self.dist)
+        ax.plot(self.dist_mmd)
 
-        plt.savefig(self.path + self.name + plot_name)
+        plt.savefig(self.path + self.name + plot_name + '_mmd')
         plt.close()
     
+    def plot_dists_wass1(self, plot_name):
+        fig, ax = plt.figure(), plt.axes()
+        for i in range(self.dists_wass1[0]):
+            ax.plot(self.dists_wass1[i])
+
+        plt.savefig(self.path + self.name + plot_name + '_wass1')
+        plt.close()
+
     def median_dist(self, n_estimate = None):
         mu = np.concatenate([self.mu1, self.mu2], axis = 0)
         
@@ -255,7 +273,7 @@ class Two_Sample:
 
         return np.mean(medians)
 
-    def calculate_dist(self, 
+    def calculate_dist_mmd(self, 
                        sigma = 1.0,
                        biased = False,
                        linear_time = False,
@@ -275,14 +293,41 @@ class Two_Sample:
         start_time = time.time()
         print("calculating distances")
         if linear_time:
-            self.dist = meas.mmd_rbf_seq_lin_time(mu1, mu2, sigma)
+            self.dist_mmd = meas.mmd_rbf_seq_lin_time(mu1, mu2, sigma)
         else:
-            self.dist = meas.mmd_rbf_seq(mu1, mu2, sigma, biased)
+            self.dist_mmd = meas.mmd_rbf_seq(mu1, mu2, sigma, biased)
         
-        plot_name = "_biased_" + str(biased) + "_linear_time_" + str(linear_time)
-        self.plot_dists(plot_name)
-        self.save_dist()
+        plot_name = "_biased_" + str(biased) + "_linear_time_" + str(linear_time) + '_mmd'
+        self.plot_dists_mmd(plot_name)
+        self.save_dist_mmd()
         elapsed_time = time.time() - start_time
         print(f"Time to calculate distances: {elapsed_time:.3f} seconds")
         
-        return self.dist
+        return self.dist_mmd
+
+
+    def calculate_dists_wass1(self,coord_list : list = None,
+                       enforce_equal : bool = False):
+        if enforce_equal:
+            m, n = self.mu1.shape[0], self.mu2.shape[0]
+            p = min(m, n)
+            idx1 = np.random.choice(m, p, replace = False)
+            idx2 = np.random.choice(n, p, replace = False)
+
+            mu1 = self.mu1[idx1]
+            mu2 = self.mu2[idx2]
+        else:
+            mu1 = self.mu1
+            mu2 = self.mu2
+
+        start_time = time.time()
+        print("calculating distances")
+        self.dists_wass1 = meas.wasserstein1_seq(mu1, mu2) # (d,T)
+        
+        plot_name = 'wass1'
+        self.plot_dists_wass1(plot_name)
+        self.save_dists_wass1()
+        elapsed_time = time.time() - start_time
+        print(f"Time to calculate distances: {elapsed_time:.3f} seconds")
+        
+        return self.dists_wass1
