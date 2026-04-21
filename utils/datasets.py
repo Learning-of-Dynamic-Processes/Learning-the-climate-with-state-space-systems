@@ -224,6 +224,7 @@ class Two_Sample:
         self.mu2 = np.load(self.path + self.name2 + '.npy')
 
     def load_dist_mmd(self):
+        print(self.path + self.name + '_mmd.npy')
         self.dist_mmd = np.load(self.path + self.name + '_mmd.npy')
         
     def load_dists_wass1(self):
@@ -248,7 +249,7 @@ class Two_Sample:
     
     def plot_dists_wass1(self, plot_name):
         fig, ax = plt.figure(), plt.axes()
-        for i in range(self.dists_wass1[0]):
+        for i in range(self.dists_wass1.shape[0]):
             ax.plot(self.dists_wass1[i])
 
         plt.savefig(self.path + self.name + plot_name + '_wass1')
