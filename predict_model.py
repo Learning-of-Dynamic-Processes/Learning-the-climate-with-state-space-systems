@@ -1,12 +1,4 @@
-# #%%
-# To do:
-# Clean up this code 
-# write wasserstein distance functions to calculate
-# calculate wasserstein distances for each coordinate as it changes over time, over the 1000 initial conditions
-# and plot together in one graph
-# calculate wasserstein distance for one initial condition as it converges
-#     plot thier magrinal distributions too
-
+#%%
 import os
 
 import matplotlib.pyplot as plt
@@ -106,6 +98,7 @@ model.load_network(model_name)
 load_samples = config["DATA"]["load_samples"]
 load_sample_dists_mmd = config["DATA"]["load_sample_dists_mmd"]
 load_sample_dists_wass1 = config["DATA"]["load_sample_dists_wass1"]
+load_sample_dists_wass1_traj = config["DATA"]["load_sample_dists_wass1_traj"]
 #%% predict
 warmup = config["DATA"]["max_warmup"]
 T_end = dataset_test.input_data.shape[1]
@@ -209,6 +202,7 @@ samples_12 = Two_Sample(nu1_trajs_true,
                         load_samples,
                         load_sample_dists_mmd,
                         load_sample_dists_wass1,
+                        load_sample_dists_wass1_traj,
                         folder + "/", 
                         name, 
                         name1,
@@ -227,8 +221,6 @@ if not load_sample_dists_wass1:
 else:
     dists_12_wass1 = samples_12.dists_wass1
 
-#%%
-print(samples_12.dist_mmd)
 #%% calculate distance between distributions for trajectories samples_1_truepred
 name = "dist_trajs_truepred_11" + tag + "_model_"
 name1 = "nu1_trajs_true" + tag
@@ -238,6 +230,7 @@ samples_11 = Two_Sample(nu1_trajs_true,
                         load_samples,
                         load_sample_dists_mmd,
                         load_sample_dists_wass1,
+                        load_sample_dists_wass1_traj,
                         folder + "/", 
                         name, 
                         name1,
@@ -254,12 +247,14 @@ if not load_sample_dists_wass1:
     dists_11_wass1 = samples_11.calculate_dists_wass1()
 else:
     dists_11_wass1 = samples_11.dists_wass1
-    
-# #%%
-# import importlib
-# importlib.reload(meas)
-#%%
-dists_12_mmd.shape
+
+if not load_sample_dists_wass1_traj:
+    coord_list = None
+    init_cond = 0
+    aggregate = 10
+    dists_11_wass1_traj = samples_11.calculate_dists_wass1_traj(coord_list, init_cond, warmup, aggregate)
+else:
+    dists_11_wass1_traj = samples_11.dists_wass1_traj
 #%% plot the MMD between the distributions against each other
 
 m = samples_12.mu1.shape[0]
@@ -443,7 +438,7 @@ fig_path = os.path.join(figures_folder, 'densities_truepred.pdf')
 plt.savefig(fig_path, dpi=300, bbox_inches="tight")
 plt.show()
 
-#%%
+#%% plot initial and final distributions for true and predicted
 from scipy.stats import gaussian_kde
 
 row1 = [samples_11.mu1[:, warmup-1, :], samples_11.mu2[:, warmup-1, :], samples_12.mu2[:, warmup-1, :]]
@@ -455,7 +450,7 @@ kde = True
 
 coords = ['x', 'y', 'z']
 row_labels = ['(a) Initial distribution', '(b) Final distribution']
-data_set_labels = ['True', 'Pred', 'True']
+data_set_labels = ['True', 'Predicted', 'True']
 
 fig, axes = plt.subplots(2, d, figsize=(5 * d, 8))
 
@@ -467,7 +462,7 @@ for row_idx, row in enumerate([row1, row2]):
             
             if kde:
                 grid = np.linspace(data.min(), data.max(), 300)
-                ax.plot(grid, gaussian_kde(data)(grid), color=f"C{ds_idx}", label = data_set_labels[ds_idx] if row_idx ==0 and dim_idx == 0 else None)
+                ax.plot(grid, gaussian_kde(data)(grid), color=f"C{ds_idx}", label = data_set_labels[ds_idx] if (row_idx ==0 and dim_idx == 0) else "")
                 ax.fill_between(grid, gaussian_kde(data)(grid), alpha=0.3, color=f"C{ds_idx}")
             else:
                 ax.hist(data, bins=bins, alpha=0.7, density=True, color=f"C{ds_idx}")
@@ -477,11 +472,11 @@ for row_idx, row in enumerate([row1, row2]):
             
         # ax.set_title(f"{row_labels[ds_idx]} — {coords[dim_idx]}")
 
-handles = [axes[0, 0].get_legend_handles_labels()[0][0]]
+handles = [axes[0, 0].get_legend_handles_labels()[0][i] for i in range(len(data_set_labels))]
 
 
 fig.legend(
-    handles, row_labels,
+    handles, data_set_labels,
     loc='lower center',
     ncol=n_datasets,
     bbox_to_anchor=(0.5, -0.05),  # just below the figure
@@ -490,6 +485,78 @@ fig.legend(
 
 plt.tight_layout()
 plt.show()
+
+
+#%% plot converged distribution for one trajectory
+cutoff = aggregate
+n, T, d = samples_11.mu1.shape
+invar_meas = samples_11.mu1[:,T-cutoff:, : ].reshape(-1,d)
+row = [invar_meas, samples_11.mu2[0, warmup:, :]]
+n_datasets = len(row)
+bins = 100
+kde = True
+
+coords = ['x', 'y', 'z']
+data_set_labels = ['True', 'Predicted']
+
+fig, axes = plt.subplots(1, d, figsize=(5 * d, 8))
+
+for dim_idx in range(d):
+    for ds_idx, data_set in enumerate(row):
+        ax = axes[dim_idx]
+        data = data_set[:, dim_idx]
+        
+        if kde:
+            grid = np.linspace(data.min(), data.max(), 300)
+            ax.plot(grid, gaussian_kde(data)(grid), color=f"C{ds_idx}", label = data_set_labels[ds_idx] if dim_idx == 0 else None)
+            ax.fill_between(grid, gaussian_kde(data)(grid), alpha=0.3, color=f"C{ds_idx}")
+        else:
+            ax.hist(data, bins=bins, alpha=0.7, density=True, color=f"C{ds_idx}")
+
+    ax.set_xlabel(coords[dim_idx])
+    ax.set_ylabel(row_labels[row_idx] if dim_idx == 0 else "")
+        
+
+handles = [axes[0].get_legend_handles_labels()[0][i] for i in range(len(data_set_labels))]
+
+
+fig.legend(
+    handles, data_set_labels,
+    loc='lower center',
+    ncol=n_datasets,
+    bbox_to_anchor=(0.5, -0.05),  # just below the figure
+    frameon=False
+)
+
+plt.tight_layout()
+plt.show()
+
+
+#%% plot wasserstein distance for one trajectory to invariant measure over time
+m = samples_12.mu1.shape[0]
+print(f"sample size is {m}")
+epsilon_sq = 0.1
+time = dataset_test.tt[warmup:-1]
+coords = ['x', 'y', 'z']
+
+fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+
+for i, (c, ax) in enumerate(zip(coords, axes)):
+    ax.plot(time, samples_11.dists_wass1_traj[i], label=c + r" axis W$_1$ between $\mu$ and $\hat{\mu}^1_{\tau}$")
+    # ax.axvline(x=warmup * step, color="black", linestyle="--")
+    ax.set_yscale("log")
+    ax.set_xlabel(r"Time $\tau$")
+    ax.set_ylabel("W$_1$")
+    ax.set_xlim(warmup_time, 80)
+    # ax.set_ylim(0.8 * 1e-3, 1.5 * 1e-1)
+    ax.legend(loc="upper right")
+
+plt.tight_layout()
+fig_path = os.path.join(figures_folder, 'Wass1 transport single trajectory figure_panel.pdf')
+plt.savefig(fig_path, dpi=300)
+plt.show()
+
+
 
 
 #%%
@@ -537,8 +604,8 @@ mu2 = 100 * mu_ESN[:, indices_plot] # rescale to actual scale
 datasets = [mu1, mu2]
 titles   = ["(a) Lorenz", "(b) Proxy"]
 
-xlim = (-20, 20)
-# ylim = (-45, 50)
+xlim = (-20, 30)
+ylim = (-40, 50)
 
 fig = plt.figure(figsize=(10, 8))
 gs = gridspec.GridSpec(1, 3, width_ratios=[1, 1, 0.05])
@@ -550,7 +617,7 @@ for i, (data, ax) in enumerate(zip(datasets, axes)):
     h = ax.hist2d(x, y, bins=100, range=[xlim,ylim], cmap="viridis", norm = LogNorm(clip=True))
     
     ax.set_xlim(xlim)
-    # ax.set_ylim(ylim)
+    ax.set_ylim(ylim)
     ax.set_xlabel("x")
     ax.set_ylabel("z")
     ax.set_title(titles[i])
@@ -569,6 +636,8 @@ plt.show()
 
 #%%
 print(min(y))
+
+plt.scatter(x,y)
 
 #%% calculate distance between trajectories for one set of trajectories
 

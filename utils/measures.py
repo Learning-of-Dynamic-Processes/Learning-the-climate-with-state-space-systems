@@ -428,6 +428,58 @@ def wasserstein1_seq(x: np.ndarray, y: np.ndarray, coord_list: list = None) -> n
 
     
     return dists
+
+
+def wasserstein1_traj(x: np.ndarray, y: np.ndarray, coord_list: list = None) -> np.ndarray:
+    """
+    Computes Wasserstein-1 distance between a fixed distribution x and the emprical measure up to time t
+    over a trajectory y, for a given coordinate.
+    Args:
+        x: (n, d) array
+        y: (T, d) array
+        coord_list: list of coordinate index (0 <= c <= d-1)
+    Returns:
+        dists: (num_coords, T) array of Wasserstein-1 distances for each coordinate per time step
+    """
+    if coord_list == None:
+        coord_list = range(x.shape[1])
+
+    n = x.shape[0]
+    T = y.shape[0]
+    u_x = np.arange(n + 1) / n  # fixed breakpoints from x
+    dists = np.zeros((len(coord_list), y.shape[0]))
+    
+    for (i,c) in enumerate(coord_list):
+        xc = x[:, c]  # (n,)
+        yc = y[:, c]  # (T,)
+        
+        x_sorted = np.sort(xc)
+        distances = np.zeros(T)
+        y_sorted = np.empty(T)  # will grow as a sorted buffer
+        
+        for t in range(T):
+            # insert yc[t] into sorted buffer
+            ins = np.searchsorted(y_sorted[:t], yc[t])
+            y_sorted[ins+1:t+1] = y_sorted[ins:t]
+            y_sorted[ins] = yc[t]
+            
+            m = t + 1
+            u_y = np.arange(m + 1) / m  # breakpoints from yc[:t+1]
+            
+            # merged quantile grid
+            u_all = np.union1d(u_x, u_y)
+            
+            # evaluate quantile functions on merged grid
+            idx_x = np.clip(np.searchsorted(u_x, u_all, side='right') - 1, 0, n - 1)
+            idx_y = np.clip(np.searchsorted(u_y, u_all, side='right') - 1, 0, m - 1)
+            
+            qx = x_sorted[idx_x]
+            qy = y_sorted[:m][idx_y]
+            
+            du = np.diff(u_all)
+            dists[c,t] = np.dot(np.abs(qx[:-1] - qy[:-1]), du)
+    
+    return dists
 # #%%
 # import matplotlib.pyplot as plt
 
