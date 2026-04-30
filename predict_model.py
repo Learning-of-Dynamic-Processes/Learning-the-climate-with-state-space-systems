@@ -221,6 +221,15 @@ if not load_sample_dists_wass1:
 else:
     dists_12_wass1 = samples_12.dists_wass1
 
+
+aggregate = 10
+if not load_sample_dists_wass1_traj:
+    coord_list = None
+    init_cond = 0
+    dists_12_wass1_traj = samples_12.calculate_dists_wass1_traj(coord_list, init_cond, warmup, aggregate)
+else:
+    dists_12_wass1_traj = samples_12.dists_wass1_traj
+
 #%% calculate distance between distributions for trajectories samples_1_truepred
 name = "dist_trajs_truepred_11" + tag + "_model_"
 name1 = "nu1_trajs_true" + tag
@@ -255,6 +264,7 @@ if not load_sample_dists_wass1_traj:
     dists_11_wass1_traj = samples_11.calculate_dists_wass1_traj(coord_list, init_cond, warmup, aggregate)
 else:
     dists_11_wass1_traj = samples_11.dists_wass1_traj
+
 #%% plot the MMD between the distributions against each other
 
 m = samples_12.mu1.shape[0]
@@ -332,19 +342,33 @@ print(f"sample size is {m}")
 epsilon_sq = 0.1
 time = dataset_test.tt[:-1]
 coords = ['x', 'y', 'z']
+labels_graphs = ['(a) x-axis', '(b) y-axis', '(c) z-axis']
 
 fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
 for i, (c, ax) in enumerate(zip(coords, axes)):
-    ax.plot(time, dists_12_wass1[i], label=c + r" axis W$_1$ between $\mu^1_{\tau}$ and $\mu^2_{\tau}$")
-    ax.plot(time, dists_11_wass1[i], label=c + r" axis W$_1$ between $\mu^1_{\tau}$ and $\hat{\mu}^1_{\tau}$")
+    line1, = ax.plot(time, dists_12_wass1[i], label=c + r" axis W$_1$ between $\mu^1_{\tau}$ and $\mu^2_{\tau}$")
+    line2, = ax.plot(time, dists_11_wass1[i], label=c + r" axis W$_1$ between $\mu^1_{\tau}$ and $\hat{\mu}^1_{\tau}$")
     ax.axvline(x=warmup * step, color="black", linestyle="--")
     ax.set_yscale("log")
-    ax.set_xlabel(r"Time $\tau$")
-    ax.set_ylabel("W$_1$")
+    if i == 1:
+        ax.set_xlabel(r"Time $\tau$")
+    ax.set_title(labels_graphs[i])
+    if i == 0:
+        ax.set_ylabel("W$_1$")
     ax.set_xlim(0, 80)
     ax.set_ylim(0.8 * 1e-3, 1.5 * 1e-1)
-    ax.legend(loc="upper right")
+    # ax.legend(loc="upper right")
+
+fig.legend(
+    [line1, line2],
+    [r"W$_1(\mu^1_{\tau}, \mu^2_{\tau})$", r"W$_1(\mu^1_{\tau}, \hat{\mu}^1_{\tau})$"],
+    loc="lower center",
+    ncol=2,
+    bbox_to_anchor=(0.5, 1.02),
+    frameon=False
+)
+
 
 plt.tight_layout()
 fig_path = os.path.join(figures_folder, 'Wass1 transport figure_panel.pdf')
@@ -361,7 +385,7 @@ mu3 = 100 * samples_12.mu1[: , -1, indices_plot]
 mu4 = 100 * samples_12.mu2[: , -1, indices_plot]
 
 datasets = [mu1, mu2, mu3, mu4]
-titles   = [f"$\mu_1$ at t={warmup * step}", f"$\mu_2$ at t={warmup * step}", f"$\mu_1$ at t={T_end * step}", f"$\mu_2$ at t={T_end * step}"]
+titles   = [r"$\mu^1$ at $\tau$" + f"={warmup * step}", r"$\mu^2$ at $\tau$" + f"={warmup * step}", r"$\mu^1$ at $\tau$" + f"={T_end * step}", r"$\mu^2$ at $\tau$" + f"={T_end * step}"]
 
 xlim = (-20, 20)
 ylim = (0, 50)
@@ -387,7 +411,7 @@ cax = fig.add_subplot(gs[:, 2])
 cbar = fig.colorbar(h[3], cax=cax)
 cbar.set_label("Counts")
 
-fig.suptitle("Densities", fontsize=16)
+# fig.suptitle("Densities", fontsize=16)
 plt.tight_layout(rect=[0, 0, 1, 0.95])
 
 # Save the figure
@@ -404,7 +428,7 @@ mu3 = 100 * samples_11.mu1[: , -1, indices_plot]
 mu4 = 100 * samples_11.mu2[: , -1, indices_plot]
 
 datasets = [mu1, mu2, mu3, mu4]
-titles   = [f"$\mu_t$ at t={warmup * step}", f"$\mu_p$ at t={warmup * step}", f"$\mu_t$ at t={T_end * step}", f"$\mu_p$ at t={T_end * step}"]
+titles   = [r"$\mu^1$ at $\tau$" + f"= {warmup * step}", r"$\hat{\mu}^1$ at $\tau$" + f"={warmup * step}", r"$\mu^1$ at $\tau$" + f"={T_end * step}", r"$\hat{\mu}^1$ at $\tau$" + f"={T_end * step}"]
 
 xlim = (-20, 20)
 ylim = (0, 50)
@@ -430,7 +454,7 @@ cax = fig.add_subplot(gs[:, 2])
 cbar = fig.colorbar(h[3], cax=cax)
 cbar.set_label("Counts")
 
-fig.suptitle("Densities", fontsize=16)
+# fig.suptitle("Densities", fontsize=16)
 plt.tight_layout(rect=[0, 0, 1, 0.95])
 
 # Save the figure
@@ -438,19 +462,81 @@ fig_path = os.path.join(figures_folder, 'densities_truepred.pdf')
 plt.savefig(fig_path, dpi=300, bbox_inches="tight")
 plt.show()
 
+#%%
+import matplotlib.gridspec as gridspec
+
+indices_plot = [0, 2]
+xlim = (-20, 20)
+ylim = (0, 50)
+
+# --- Data ---
+# Column 1: mu^2
+col1 = [100 * samples_12.mu2[:, warmup-1, indices_plot],
+        100 * samples_12.mu2[:, -1,       indices_plot]]
+
+# Column 2: mu^1
+col2 = [100 * samples_12.mu1[:, warmup-1, indices_plot],
+        100 * samples_12.mu1[:, -1,       indices_plot]]
+
+# Column 3: hat{mu}^1
+col3 = [100 * samples_11.mu2[:, warmup-1, indices_plot],
+        100 * samples_11.mu2[:, -1,       indices_plot]]
+
+columns   = [col1, col2, col3]
+col_titles = [r"(a) $\mu^2$", r"(b) $\mu^1$", r"(c) $\hat{\mu}^1$"]
+row_labels = [r"$\tau$" + f"$= {warmup * step}$", r"$\tau$" + f"$= {T_end * step}$"]
+
+# --- Figure ---
+fig = plt.figure(figsize=(14, 8))
+gs = gridspec.GridSpec(2, 4, width_ratios=[1, 1, 1, 0.05], hspace=0.2, wspace=0.3)
+
+axes = [[fig.add_subplot(gs[row, col]) for col in range(3)] for row in range(2)]
+
+h_last = None
+for col_idx, (col_data, col_title) in enumerate(zip(columns, col_titles)):
+    for row_idx, data in enumerate(col_data):
+        ax = axes[row_idx][col_idx]
+        x, y = data[:, 0], data[:, 1]
+        h = ax.hist2d(x, y, bins=100, range=[xlim, ylim], cmap="magma_r")
+        h_last = h
+
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        if row_idx == 1:
+            ax.set_xlabel("x")
+
+        # Column titles on top row only
+        if row_idx == 0:
+            ax.set_title(col_title, fontsize=13)
+
+        # Row labels on leftmost column only
+        if col_idx == 0:
+            ax.set_ylabel(f"{row_labels[row_idx]}\nz", fontsize=10)
+        # else:
+        #     ax.set_ylabel("z")
+
+# Shared colorbar
+cax = fig.add_subplot(gs[:, 3])
+cbar = fig.colorbar(h_last[3], cax=cax)
+cbar.set_label("Counts")
+
+fig_path = os.path.join(figures_folder, 'densities_combined.pdf')
+plt.savefig(fig_path, dpi=300, bbox_inches="tight")
+plt.show()
+
 #%% plot initial and final distributions for true and predicted
 from scipy.stats import gaussian_kde
 
-row1 = [samples_11.mu1[:, warmup-1, :], samples_11.mu2[:, warmup-1, :], samples_12.mu2[:, warmup-1, :]]
-row2 = [samples_11.mu1[:, -1, :], samples_11.mu2[:, -1, :], samples_12.mu2[:, -1, :]]
+row1 = [samples_12.mu2[:, warmup-1, :], samples_11.mu1[:, warmup-1, :], samples_11.mu2[:, warmup-1, :]]
+row2 = [samples_12.mu2[:, -1, :], samples_11.mu1[:, -1, :], samples_11.mu2[:, -1, :]]
 d = row1[0].shape[1]
 n_datasets = len(row1)
 bins = 100
 kde = True
 
 coords = ['x', 'y', 'z']
-row_labels = ['(a) Initial distribution', '(b) Final distribution']
-data_set_labels = ['True', 'Predicted', 'True']
+row_labels = [r'(a) Initial distribution $\tau=20$', r'(b) Final distribution $\tau = 80$']
+data_set_labels = [r'True $\mu^2_\tau$', r'True $\mu^1_\tau$', r'Predicted $\hat{\mu}^1_\tau$']
 
 fig, axes = plt.subplots(2, d, figsize=(5 * d, 8))
 
@@ -484,8 +570,11 @@ fig.legend(
 )
 
 plt.tight_layout()
-plt.show()
 
+# Save the figure
+fig_path = os.path.join(figures_folder, 'densities_axes.pdf')
+plt.savefig(fig_path, dpi=300, bbox_inches="tight")
+plt.show()
 
 #%% plot converged distribution for one trajectory
 cutoff = aggregate
@@ -514,7 +603,6 @@ for dim_idx in range(d):
             ax.hist(data, bins=bins, alpha=0.7, density=True, color=f"C{ds_idx}")
 
     ax.set_xlabel(coords[dim_idx])
-    ax.set_ylabel(row_labels[row_idx] if dim_idx == 0 else "")
         
 
 handles = [axes[0].get_legend_handles_labels()[0][i] for i in range(len(data_set_labels))]
@@ -529,7 +617,6 @@ fig.legend(
 )
 
 plt.tight_layout()
-plt.show()
 
 
 #%% plot wasserstein distance for one trajectory to invariant measure over time
@@ -537,7 +624,7 @@ m = samples_12.mu1.shape[0]
 print(f"sample size is {m}")
 epsilon_sq = 0.1
 time = dataset_test.tt[warmup:-1]
-coords = ['x', 'y', 'z']
+coords = ['(a) x', '(b) y', '(c) z']
 
 fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
@@ -545,19 +632,20 @@ for i, (c, ax) in enumerate(zip(coords, axes)):
     ax.plot(time, samples_11.dists_wass1_traj[i], label=c + r" axis W$_1$ between $\mu$ and $\hat{\mu}^1_{\tau}$")
     # ax.axvline(x=warmup * step, color="black", linestyle="--")
     ax.set_yscale("log")
-    ax.set_xlabel(r"Time $\tau$")
-    ax.set_ylabel("W$_1$")
+    if i == 1:
+        ax.set_xlabel(f"Time $\\tau$\n"+coords[i]+"-axis")
+    else:
+        ax.set_xlabel(f" \n"+ coords[i]+"-axis")
+    if i == 0:
+        ax.set_ylabel("W$_1$ distance")
     ax.set_xlim(warmup_time, 80)
     # ax.set_ylim(0.8 * 1e-3, 1.5 * 1e-1)
-    ax.legend(loc="upper right")
+    # ax.legend(loc="upper right")
 
 plt.tight_layout()
 fig_path = os.path.join(figures_folder, 'Wass1 transport single trajectory figure_panel.pdf')
 plt.savefig(fig_path, dpi=300)
 plt.show()
-
-
-
 
 #%%
 #%% compare the invariant measures of lorenz and ESN
@@ -614,12 +702,13 @@ axes = [fig.add_subplot(gs[0,0]), fig.add_subplot(gs[0,1])]
 for i, (data, ax) in enumerate(zip(datasets, axes)):
     x = data[:, 0]
     y = data[:, 1]
-    h = ax.hist2d(x, y, bins=100, range=[xlim,ylim], cmap="viridis", norm = LogNorm(clip=True))
+    h = ax.hist2d(x, y, bins=100, range=[xlim,ylim], cmap="magma_r", norm = LogNorm(clip=True))
     
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
     ax.set_xlabel("x")
-    ax.set_ylabel("z")
+    if i == 0:
+        ax.set_ylabel("z")
     ax.set_title(titles[i])
 
 cax = fig.add_subplot(gs[:, 2])
@@ -634,10 +723,6 @@ fig_path = os.path.join(figures_folder, 'invariant_measures.pdf')
 plt.savefig(fig_path, dpi=300, bbox_inches="tight")
 plt.show()
 
-#%%
-print(min(y))
-
-plt.scatter(x,y)
 
 #%% calculate distance between trajectories for one set of trajectories
 
@@ -676,7 +761,6 @@ plt.savefig(fig_path, dpi=300)
 plt.show()
 
 
-#%%
 #%% calculate distance between trajectories average over all trajectories
 
 # true and predicted first trajectory

@@ -178,6 +178,7 @@ class Dataset:
             ids=self.ids,
         )
 
+
 """
 class ParallelDataset # to be implemented
 """
@@ -213,13 +214,17 @@ class Two_Sample:
 
         if load_dist_mmd:
             self.load_dist_mmd()
+        else:
+            self.dist_mmd = None
+
         if load_dist_wass1:
             self.load_dists_wass1()
+        else:
+            self.dists_wass1 = None
+
         if load_dist_wass1_traj:
             self.load_dists_wass1_traj()
         else:
-            self.dist_mmd = None
-            self.dists_wass1 = None
             self.dists_wass1_traj = None
         
     def load_data(self):
