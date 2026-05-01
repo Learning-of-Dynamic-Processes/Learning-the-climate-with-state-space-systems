@@ -295,7 +295,7 @@ plt.ylim(0, 1e0)
 plt.tight_layout()
 
 plt.legend()
-fig_path = os.path.join(figures_folder, 'MMD transport figure.pdf')
+fig_path = os.path.join(figures_folder, 'MMD_transport_figure.pdf')
 plt.savefig(fig_path, dpi=300)
 plt.show()
 
@@ -331,7 +331,7 @@ plt.ylim(0.8 * 1e-3, 1.5 * 1e-1)
 plt.tight_layout()
 
 plt.legend(loc = "upper right")
-fig_path = os.path.join(figures_folder, 'Wass1 transport figure.pdf')
+fig_path = os.path.join(figures_folder, 'Wass1_transport_figure.pdf')
 plt.savefig(fig_path, dpi=300)
 plt.show()
 
@@ -365,14 +365,15 @@ fig.legend(
     [r"W$_1(\mu^1_{\tau}, \mu^2_{\tau})$", r"W$_1(\mu^1_{\tau}, \hat{\mu}^1_{\tau})$"],
     loc="lower center",
     ncol=2,
-    bbox_to_anchor=(0.5, 1.02),
+    bbox_to_anchor=(0.5, -0.05),
     frameon=False
 )
 
 
 plt.tight_layout()
-fig_path = os.path.join(figures_folder, 'Wass1 transport figure_panel.pdf')
-plt.savefig(fig_path, dpi=300)
+plt.subplots_adjust(bottom=0.15)
+fig_path = os.path.join(figures_folder, 'Wass1_transport_figure_panel.pdf')
+plt.savefig(fig_path, dpi=300, bbox_inches = "tight")
 plt.show()
 
 #%% plot distributions at warmup and end
@@ -483,7 +484,7 @@ col3 = [100 * samples_11.mu2[:, warmup-1, indices_plot],
         100 * samples_11.mu2[:, -1,       indices_plot]]
 
 columns   = [col1, col2, col3]
-col_titles = [r"(a) $\mu^2$", r"(b) $\mu^1$", r"(c) $\hat{\mu}^1$"]
+col_titles = [r"(a) $\mu^2_\tau$", r"(b) $\mu^1_\tau$", r"(c) $\hat{\mu}^1_\tau$"]
 row_labels = [r"$\tau$" + f"$= {warmup * step}$", r"$\tau$" + f"$= {T_end * step}$"]
 
 # --- Figure ---
@@ -536,7 +537,7 @@ kde = True
 
 coords = ['x', 'y', 'z']
 row_labels = [r'(a) Initial distribution $\tau=20$', r'(b) Final distribution $\tau = 80$']
-data_set_labels = [r'True $\mu^2_\tau$', r'True $\mu^1_\tau$', r'Predicted $\hat{\mu}^1_\tau$']
+data_set_labels = [r'(a) True $\mu^2_\tau$', r'(b) True $\mu^1_\tau$', r'(c) Predicted $\hat{\mu}^1_\tau$']
 
 fig, axes = plt.subplots(2, d, figsize=(5 * d, 8))
 
@@ -633,19 +634,19 @@ for i, (c, ax) in enumerate(zip(coords, axes)):
     # ax.axvline(x=warmup * step, color="black", linestyle="--")
     ax.set_yscale("log")
     if i == 1:
-        ax.set_xlabel(f"Time $\\tau$\n"+coords[i]+"-axis")
-    else:
-        ax.set_xlabel(f" \n"+ coords[i]+"-axis")
+        ax.set_xlabel(f"Time $\\tau$")
     if i == 0:
-        ax.set_ylabel("W$_1$ distance")
+        ax.set_ylabel("W$_1$")
+    ax.set_title(coords[i]+"-axis")
     ax.set_xlim(warmup_time, 80)
     # ax.set_ylim(0.8 * 1e-3, 1.5 * 1e-1)
     # ax.legend(loc="upper right")
 
 plt.tight_layout()
-fig_path = os.path.join(figures_folder, 'Wass1 transport single trajectory figure_panel.pdf')
+fig_path = os.path.join(figures_folder, 'Wass1_transport_single_trajectory_figure_panel.pdf')
 plt.savefig(fig_path, dpi=300)
 plt.show()
+
 
 #%%
 #%% compare the invariant measures of lorenz and ESN
@@ -756,7 +757,7 @@ plt.axvline(x=step * warmup, color="black", linestyle="--")
 plt.legend()
 plt.tight_layout()
 
-fig_path = os.path.join(figures_folder, 'Trajectories distance figure.pdf')
+fig_path = os.path.join(figures_folder, 'Trajectories_distance_figure.pdf')
 plt.savefig(fig_path, dpi=300)
 plt.show()
 
@@ -793,7 +794,7 @@ plt.axvline(x=step * warmup, color="black", linestyle="--")
 plt.legend()
 plt.tight_layout()
 
-fig_path = os.path.join(figures_folder, 'Trajectories mean distance figure.pdf')
+fig_path = os.path.join(figures_folder, 'Trajectories_mean_distance_figure.pdf')
 plt.savefig(fig_path, dpi=300)
 plt.show()
 
