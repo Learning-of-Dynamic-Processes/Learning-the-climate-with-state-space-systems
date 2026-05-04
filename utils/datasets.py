@@ -225,7 +225,10 @@ class Two_Sample:
         if load_dist_wass1_traj:
             self.load_dists_wass1_traj()
         else:
-            self.dists_wass1_traj = None
+            self.dists_wass1_traj_invartrue = None
+            self.dists_wass1_traj_invarpred = None
+            self.dists_wass1_traj_truepred = None
+            
         
     def load_data(self):
         print(self.path + self.name1 + '.npy')
@@ -240,7 +243,9 @@ class Two_Sample:
         self.dists_wass1 = np.load(self.path + self.name + '_wass1.npy')
 
     def load_dists_wass1_traj(self):
-        self.dists_wass1_traj = np.load(self.path + self.name + '_wass1_traj.npy')
+        self.dists_wass1_traj_invartrue = np.load(self.path + self.name + '_wass1_traj_invartrue.npy')
+        self.dists_wass1_traj_invarpred = np.load(self.path + self.name + '_wass1_traj_invarpred.npy')
+        self.dists_wass1_traj_truepred = np.load(self.path + self.name + '_wass1_traj_truepred.npy')
 
     def save_data(self):
         np.save(self.path + self.name1, self.mu1)
@@ -253,7 +258,9 @@ class Two_Sample:
         np.save(self.path + self.name + '_wass1', self.dists_wass1)
 
     def save_dists_wass1_traj(self):
-        np.save(self.path + self.name + '_wass1_traj', self.dists_wass1_traj)
+        np.save(self.path + self.name + '_wass1_traj_invartrue', self.dists_wass1_traj_invartrue)
+        np.save(self.path + self.name + '_wass1_traj_invarpred', self.dists_wass1_traj_invarpred)
+        np.save(self.path + self.name + '_wass1_traj_truepred', self.dists_wass1_traj_truepred)
 
     def plot_dists_mmd(self, plot_name):
         fig, ax = plt.figure(), plt.axes()
@@ -272,8 +279,10 @@ class Two_Sample:
 
     def plot_dists_wass1_traj(self, plot_name):
         fig, ax = plt.figure(), plt.axes()
-        for i in range(self.dists_wass1_traj.shape[0]):
-            ax.plot(self.dists_wass1_traj[i])
+        for i in range(self.dists_wass1_traj_invartrue.shape[0]):
+            ax.plot(self.dists_wass1_traj_invartrue[i])
+            ax.plot(self.dists_wass1_traj_invarpred[i])
+            ax.plot(self.dists_wass1_traj_truepred[i])
 
         plt.savefig(self.path + self.name + plot_name + '_wass1_traj')
         plt.close()
@@ -356,19 +365,29 @@ class Two_Sample:
         
         return self.dists_wass1
     
-    def calculate_dists_wass1_traj(self,coord_list : list = None, init_cond : int = 0, warmup : int = 1000, aggregate_invar_meas : int = 1):
+    def calculate_dists_wass1_traj(self,
+                                   coord_list : list = None,
+                                   init_cond : int = 0,
+                                   warmup : int = 1000,
+                                   aggregate_invar_meas : int = 1,
+                                   down_sample : int = 10000):
         n, T, d = self.mu1.shape
         invar_meas = self.mu1[:,T-aggregate_invar_meas:, : ].reshape(-1,d)
-        trajectory = self.mu2[init_cond, warmup:, :]
+        m = min(down_sample, invar_meas.shape[0])
+        invar_meas = downsample_array(invar_meas, m)
+        trajectory1 = self.mu1[init_cond, warmup:, :]
+        trajectory2 = self.mu2[init_cond, warmup:, :]
 
         start_time = time.time()
         print("calculating distances")
-        self.dists_wass1_traj = meas.wasserstein1_traj(invar_meas, trajectory)
-        
+        self.dists_wass1_traj_invartrue = meas.wasserstein1_traj(invar_meas, trajectory1)
+        self.dists_wass1_traj_invarpred = meas.wasserstein1_traj(invar_meas, trajectory2)
+        self.dists_wass1_traj_truepred = meas.wasserstein1_parallel_traj(trajectory1, trajectory2)
+
         plot_name = 'wass1_traj'
         self.plot_dists_wass1_traj(plot_name)
         self.save_dists_wass1_traj()
         elapsed_time = time.time() - start_time
         print(f"Time to calculate distances: {elapsed_time:.3f} seconds")
         
-        return self.dists_wass1_traj
+        return self.dists_wass1_traj_invartrue, self.dists_wass1_traj_invarpred, self.dists_wass1_traj_truepred

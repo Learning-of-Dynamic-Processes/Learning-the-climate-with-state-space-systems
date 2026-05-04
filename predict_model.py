@@ -1,6 +1,8 @@
 #%%
 import os
 
+# import matplotlib as mpl
+# mpl.rcParams['text.usetex'] = True
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import torch
@@ -8,6 +10,7 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 import numpy as np
 
+import utils.datasets as Datasets
 from utils.datasets import Dataset, Two_Sample, downsample_array
 from utils.model import ESN, ESNModel, ESNModel_DS, RCN, RCNModel,  RCNModel_DS, progress
 import utils.measures as meas
@@ -194,6 +197,11 @@ if not load_samples:
     meas.plot_measure(nu2, (0,2), num_bins, 'hist')
 
 #%% calculate distance between distributions for trajectories samples_12_true
+
+coord_list = None
+init_cond = 0
+aggregate = 100
+down_sample = 10000
 name = "dist_trajs_truetrue_12" + tag + "_model_"
 name1 = "nu1_trajs_true" + tag
 name2 = "nu2_trajs_true" + tag
@@ -221,14 +229,12 @@ if not load_sample_dists_wass1:
 else:
     dists_12_wass1 = samples_12.dists_wass1
 
-
-aggregate = 10
 if not load_sample_dists_wass1_traj:
-    coord_list = None
-    init_cond = 0
-    dists_12_wass1_traj = samples_12.calculate_dists_wass1_traj(coord_list, init_cond, warmup, aggregate)
+    dists_12_wass1_traj = samples_12.calculate_dists_wass1_traj(coord_list, init_cond, warmup, aggregate, down_sample)
+    dists_12_wass1_traj_invartrue, dists_12_wass1_traj_invarpred, dists_12_wass1_traj_truepred = dists_12_wass1_traj
 else:
-    dists_12_wass1_traj = samples_12.dists_wass1_traj
+    dists_12_wass1_traj_invartrue, dists_12_wass1_traj_invarpred, dists_12_wass1_traj_truepred = samples_12.dists_wass1_traj_invartrue, samples_12.dists_wass1_traj_invarpred, samples_12.dists_wass1_traj_truepred
+
 
 #%% calculate distance between distributions for trajectories samples_1_truepred
 name = "dist_trajs_truepred_11" + tag + "_model_"
@@ -258,12 +264,10 @@ else:
     dists_11_wass1 = samples_11.dists_wass1
 
 if not load_sample_dists_wass1_traj:
-    coord_list = None
-    init_cond = 0
-    aggregate = 10
-    dists_11_wass1_traj = samples_11.calculate_dists_wass1_traj(coord_list, init_cond, warmup, aggregate)
+    dists_11_wass1_traj = samples_11.calculate_dists_wass1_traj(coord_list, init_cond, warmup, aggregate, down_sample)
+    dists_11_wass1_traj_invartrue, dists_11_wass1_traj_invarpred, dists_11_wass1_traj_truepred = dists_11_wass1_traj
 else:
-    dists_11_wass1_traj = samples_11.dists_wass1_traj
+    dists_11_wass1_traj_invartrue, dists_11_wass1_traj_invarpred, dists_11_wass1_traj_truepred = samples_11.dists_wass1_traj_invartrue, samples_11.dists_wass1_traj_invarpred, samples_11.dists_wass1_traj_truepred
 
 #%% plot the MMD between the distributions against each other
 
@@ -347,27 +351,29 @@ labels_graphs = ['(a) x-axis', '(b) y-axis', '(c) z-axis']
 fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
 for i, (c, ax) in enumerate(zip(coords, axes)):
-    line1, = ax.plot(time, dists_12_wass1[i], label=c + r" axis W$_1$ between $\mu^1_{\tau}$ and $\mu^2_{\tau}$")
-    line2, = ax.plot(time, dists_11_wass1[i], label=c + r" axis W$_1$ between $\mu^1_{\tau}$ and $\hat{\mu}^1_{\tau}$")
+    line1, = ax.plot(time, dists_12_wass1[i], label = r"W$_1$ distance beween $\mu^1_{\tau}$ and $\mu^2_{\tau}$") # label=c + r" axis W$_1$ between $\mu^1_{\tau}$ and $\mu^2_{\tau}$")
+    line2, = ax.plot(time, dists_11_wass1[i], label = r"W$_1$ distance between $\mu^1_{\tau}$ and $\hat{\mu}^1_{\tau}$") # label=c + r" axis W$_1$ between $\mu^1_{\tau}$ and $\hat{\mu}^1_{\tau}$")
     ax.axvline(x=warmup * step, color="black", linestyle="--")
     ax.set_yscale("log")
-    if i == 1:
-        ax.set_xlabel(r"Time $\tau$")
-    ax.set_title(labels_graphs[i])
     if i == 0:
         ax.set_ylabel("W$_1$")
+    if i == 1:
+        ax.set_xlabel(r"Time $\tau$")
+    if i == 2:
+        ax.legend()
+    ax.set_title(labels_graphs[i])
     ax.set_xlim(0, 80)
     ax.set_ylim(0.8 * 1e-3, 1.5 * 1e-1)
     # ax.legend(loc="upper right")
 
-fig.legend(
-    [line1, line2],
-    [r"W$_1(\mu^1_{\tau}, \mu^2_{\tau})$", r"W$_1(\mu^1_{\tau}, \hat{\mu}^1_{\tau})$"],
-    loc="lower center",
-    ncol=2,
-    bbox_to_anchor=(0.5, -0.05),
-    frameon=False
-)
+# fig.legend(
+#     [line1, line2],
+#     [r"W$_1(\mu^1_{\tau}, \mu^2_{\tau})$", r"W$_1(\mu^1_{\tau}, \hat{\mu}^1_{\tau})$"],
+#     loc="lower center",
+#     ncol=2,
+#     bbox_to_anchor=(0.5, -0.05),
+#     frameon=False
+# )
 
 
 plt.tight_layout()
@@ -581,13 +587,15 @@ plt.show()
 cutoff = aggregate
 n, T, d = samples_11.mu1.shape
 invar_meas = samples_11.mu1[:,T-cutoff:, : ].reshape(-1,d)
-row = [invar_meas, samples_11.mu2[0, warmup:, :]]
+# print(invar_meas.shape)
+# invar_meas = Datasets.downsample_array(invar_meas, down_sample)
+row = [invar_meas, samples_11.mu1[0,warmup:,:], samples_11.mu2[0, warmup:, :]]
 n_datasets = len(row)
 bins = 100
 kde = True
 
 coords = ['x', 'y', 'z']
-data_set_labels = ['True', 'Predicted']
+data_set_labels = ['Invariant measure', 'True', 'Predicted']
 
 fig, axes = plt.subplots(1, d, figsize=(5 * d, 8))
 
@@ -598,27 +606,33 @@ for dim_idx in range(d):
         
         if kde:
             grid = np.linspace(data.min(), data.max(), 300)
-            ax.plot(grid, gaussian_kde(data)(grid), color=f"C{ds_idx}", label = data_set_labels[ds_idx] if dim_idx == 0 else None)
+            ax.plot(grid, gaussian_kde(data)(grid), color=f"C{ds_idx}", label = data_set_labels[ds_idx] if dim_idx == d-1 else None)
             ax.fill_between(grid, gaussian_kde(data)(grid), alpha=0.3, color=f"C{ds_idx}")
         else:
             ax.hist(data, bins=bins, alpha=0.7, density=True, color=f"C{ds_idx}")
+        if dim_idx == d-1:
+            ax.legend()
 
     ax.set_xlabel(coords[dim_idx])
         
 
-handles = [axes[0].get_legend_handles_labels()[0][i] for i in range(len(data_set_labels))]
+# handles = [axes[0].get_legend_handles_labels()[0][i] for i in range(len(data_set_labels))]
 
 
-fig.legend(
-    handles, data_set_labels,
-    loc='lower center',
-    ncol=n_datasets,
-    bbox_to_anchor=(0.5, -0.05),  # just below the figure
-    frameon=False
-)
+# fig.legend(
+#     handles, data_set_labels,
+#     loc='lower center',
+#     ncol=n_datasets,
+#     bbox_to_anchor=(0.5, -0.05),  # just below the figure
+#     frameon=False
+# )
 
 plt.tight_layout()
 
+# Save the figure
+fig_path = os.path.join(figures_folder, 'empirical_averages.pdf')
+plt.savefig(fig_path, dpi=300, bbox_inches="tight")
+plt.show()
 
 #%% plot wasserstein distance for one trajectory to invariant measure over time
 m = samples_12.mu1.shape[0]
@@ -630,13 +644,17 @@ coords = ['(a) x', '(b) y', '(c) z']
 fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
 for i, (c, ax) in enumerate(zip(coords, axes)):
-    ax.plot(time, samples_11.dists_wass1_traj[i], label=c + r" axis W$_1$ between $\mu$ and $\hat{\mu}^1_{\tau}$")
+    ax.plot(time, samples_11.dists_wass1_traj_invartrue[i], label=r"W$_1$ between $\mu$ and $\bar{\mu}^1_{\tau}$")
+    ax.plot(time, samples_11.dists_wass1_traj_invarpred[i], label=r"W$_1$ between $\mu$ and $\hat{\bar{\mu}}^1_{\tau}$")
+    ax.plot(time, samples_11.dists_wass1_traj_truepred[i], label=r"W$_1$ between $\bar{\mu}^1_{\tau}$ and $\hat{\bar{\mu}}^1_{\tau}$")
     # ax.axvline(x=warmup * step, color="black", linestyle="--")
     ax.set_yscale("log")
-    if i == 1:
-        ax.set_xlabel(f"Time $\\tau$")
     if i == 0:
         ax.set_ylabel("W$_1$")
+    if i == 1:
+        ax.set_xlabel(f"Time $\\tau$")
+    if i== 2:
+        ax.legend()
     ax.set_title(coords[i]+"-axis")
     ax.set_xlim(warmup_time, 80)
     # ax.set_ylim(0.8 * 1e-3, 1.5 * 1e-1)
@@ -648,7 +666,6 @@ plt.savefig(fig_path, dpi=300)
 plt.show()
 
 
-#%%
 #%% compare the invariant measures of lorenz and ESN
 # find invariant measure lorenz
 
@@ -658,7 +675,7 @@ t_end = 1500
 z0 = np.zeros((3))
 sd_meas = 300
 
-find_invar_meas = True
+find_invar_meas = False
 if find_invar_meas:
     lor = ds.lorenz()
     mu = meas.invariant_measure(lor,n_init_cond_meas, t_start, t_end, z0, sd_meas )
@@ -672,7 +689,7 @@ x0 = np.zeros((N))
 sd_meas = 300
 model_ds = Model_DS(model)
 
-find_invar_meas = True
+find_invar_meas = False
 if find_invar_meas:
     zeta_ESN = meas.invariant_measure(model_ds, n_init_cond_meas, t_start, t_end, x0, sd_meas )
     zeta_ESN = torch.from_numpy(zeta_ESN)
@@ -683,6 +700,7 @@ if find_invar_meas:
 else:
     # zeta_ESN = np.load('Lorenz ESN invariant measure state space.npy')
     mu_ESN = np.load(folder + '/Lorenz ESN invariant measure readout.npy')
+
 
 #%% plot invariant measures
 from matplotlib.colors import LogNorm

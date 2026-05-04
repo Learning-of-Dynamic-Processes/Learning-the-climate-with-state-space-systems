@@ -480,6 +480,47 @@ def wasserstein1_traj(x: np.ndarray, y: np.ndarray, coord_list: list = None) -> 
             dists[c,t] = np.dot(np.abs(qx[:-1] - qy[:-1]), du)
     
     return dists
+
+def wasserstein1_parallel_traj(x: np.ndarray, y: np.ndarray, coord_list: list = None) -> np.ndarray:
+    """
+    Computes Wasserstein-1 distance between empirical measures of x[:t+1] and y[:t+1]
+    for t = 0, ..., T-1, for each coordinate.
+    Args:
+        x: (T, d) array
+        y: (T, d) array
+        coord_list: list of coordinate indices (default: all)
+    Returns:
+        dists: (num_coords, T) array of Wasserstein-1 distances
+    """
+    T, d = x.shape
+    if coord_list is None:
+        coord_list = list(range(d))
+
+    dists = np.zeros((len(coord_list), T))
+
+    for i, c in enumerate(coord_list):
+        xc = x[:, c]
+        yc = y[:, c]
+
+        x_buf = np.empty(T)
+        y_buf = np.empty(T)
+
+        for t in range(T):
+            # Insert xc[t] into sorted buffer
+            ix = np.searchsorted(x_buf[:t], xc[t])
+            x_buf[ix+1:t+1] = x_buf[ix:t]
+            x_buf[ix] = xc[t]
+
+            # Insert yc[t] into sorted buffer
+            iy = np.searchsorted(y_buf[:t], yc[t])
+            y_buf[iy+1:t+1] = y_buf[iy:t]
+            y_buf[iy] = yc[t]
+
+            m = t + 1
+            dists[i, t] = np.sum(np.abs(x_buf[:m] - y_buf[:m])) / m
+
+    return dists
+
 # #%%
 # import matplotlib.pyplot as plt
 
