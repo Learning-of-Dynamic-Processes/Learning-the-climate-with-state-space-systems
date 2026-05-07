@@ -1,8 +1,12 @@
 #%%
 import os
 
-# import matplotlib as mpl
-# mpl.rcParams['text.usetex'] = True
+import matplotlib as mpl
+mpl.rcParams['axes.titlesize'] = 20
+mpl.rcParams['axes.labelsize'] = 20
+mpl.rcParams['xtick.labelsize'] = 16
+mpl.rcParams['ytick.labelsize'] = 16
+mpl.rcParams['legend.fontsize'] = 17
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import torch
@@ -298,48 +302,13 @@ plt.xlim(0, 80)
 plt.ylim(0, 1e0)
 plt.tight_layout()
 
-plt.legend()
+plt.legend(fontsize = 14, loc = 'upper right')
 fig_path = os.path.join(figures_folder, 'MMD_transport_figure.pdf')
 plt.savefig(fig_path, dpi=300)
 plt.show()
 
-#%% plot the wass_dist between the distributions against each other
-
-m = samples_12.mu1.shape[0]
-print(f"sample size is {m}")
-epsilon_sq = 0.1
-time = dataset_test.tt[:-1]
-coords = ['x','y','z']
-# hline1 = meas.two_sample_test(m, alpha = 0.05, H0 = '==', biased = True)
-# hline2 = meas.two_sample_test(m, alpha = 0.05, H0 = '>eps', epsilon_sq = epsilon_sq, biased = True)
-
-# print(f"test == crit val{hline1}")
-# print(f"test >eps crit val{hline2}")
-plt.figure(figsize=(8, 5))
-
-# Plot time series
-for i,c in zip(range(dists_12_wass1.shape[0]), coords):
-    plt.plot(time, dists_12_wass1[i], label=c + r" axis W$_1$ between $\mu^1_{\tau}$ and $\mu^2_{\tau}$")
-    plt.plot(time, dists_11_wass1[i], label=c + r" axis W$_1$ between $\mu^1_{\tau}$ and $\hat{\mu}^1_{\tau}$")
-
-plt.axvline(x=warmup * step, color="black", linestyle="--")
-# plt.axhline(y=hline1, linestyle=":", label=f"Crit val $H_0: \mu^a = \mu^b$") 
-# plt.axhline(y=hline2, linestyle=":", label=f"Crit val $H_0: MMD(\mu^a, \mu^b)^2>{epsilon_sq}$", color='red')
-
-plt.yscale("log")
-plt.xlabel(r"Time $\tau$")
-plt.ylabel("W$_1$")
-
-plt.xlim(0, 80) 
-plt.ylim(0.8 * 1e-3, 1.5 * 1e-1)
-plt.tight_layout()
-
-plt.legend(loc = "upper right")
-fig_path = os.path.join(figures_folder, 'Wass1_transport_figure.pdf')
-plt.savefig(fig_path, dpi=300)
-plt.show()
-
 #%% plot wasserstein distances in panel
+
 
 m = samples_12.mu1.shape[0]
 print(f"sample size is {m}")
@@ -366,15 +335,6 @@ for i, (c, ax) in enumerate(zip(coords, axes)):
     ax.set_ylim(0.8 * 1e-3, 1.5 * 1e-1)
     # ax.legend(loc="upper right")
 
-# fig.legend(
-#     [line1, line2],
-#     [r"W$_1(\mu^1_{\tau}, \mu^2_{\tau})$", r"W$_1(\mu^1_{\tau}, \hat{\mu}^1_{\tau})$"],
-#     loc="lower center",
-#     ncol=2,
-#     bbox_to_anchor=(0.5, -0.05),
-#     frameon=False
-# )
-
 
 plt.tight_layout()
 plt.subplots_adjust(bottom=0.15)
@@ -383,94 +343,6 @@ plt.savefig(fig_path, dpi=300, bbox_inches = "tight")
 plt.show()
 
 #%% plot distributions at warmup and end
-import matplotlib.gridspec as gridspec
-
-indices_plot = [0,2]
-mu1 = 100 * samples_12.mu1[: , warmup-1, indices_plot]
-mu2 = 100 * samples_12.mu2[: , warmup-1, indices_plot]
-mu3 = 100 * samples_12.mu1[: , -1, indices_plot]
-mu4 = 100 * samples_12.mu2[: , -1, indices_plot]
-
-datasets = [mu1, mu2, mu3, mu4]
-titles   = [r"$\mu^1$ at $\tau$" + f"={warmup * step}", r"$\mu^2$ at $\tau$" + f"={warmup * step}", r"$\mu^1$ at $\tau$" + f"={T_end * step}", r"$\mu^2$ at $\tau$" + f"={T_end * step}"]
-
-xlim = (-20, 20)
-ylim = (0, 50)
-
-fig = plt.figure(figsize=(10, 8))
-gs = gridspec.GridSpec(2, 3, width_ratios=[1, 1, 0.05])
-
-axes = [fig.add_subplot(gs[0,0]), fig.add_subplot(gs[0,1]),
-        fig.add_subplot(gs[1,0]), fig.add_subplot(gs[1,1])]
-
-for i, (data, ax) in enumerate(zip(datasets, axes)):
-    x = data[:, 0]
-    y = data[:, 1]
-    h = ax.hist2d(x, y, bins=100, range=[xlim, ylim], cmap="magma_r")
-    
-    ax.set_xlim(xlim)
-    ax.set_ylim(ylim)
-    ax.set_xlabel("x")
-    ax.set_ylabel("z")
-    ax.set_title(titles[i])
-
-cax = fig.add_subplot(gs[:, 2])
-cbar = fig.colorbar(h[3], cax=cax)
-cbar.set_label("Counts")
-
-# fig.suptitle("Densities", fontsize=16)
-plt.tight_layout(rect=[0, 0, 1, 0.95])
-
-# Save the figure
-fig_path = os.path.join(figures_folder, 'densities_truetrue.pdf')
-plt.savefig(fig_path, dpi=300, bbox_inches="tight")
-plt.show()
-
-#%%
-
-indices_plot = [0,2]
-mu1 = 100 * samples_11.mu1[: , warmup-1, indices_plot] # rescale to lorenz scale
-mu2 = 100 * samples_11.mu2[: , warmup-1, indices_plot]
-mu3 = 100 * samples_11.mu1[: , -1, indices_plot]
-mu4 = 100 * samples_11.mu2[: , -1, indices_plot]
-
-datasets = [mu1, mu2, mu3, mu4]
-titles   = [r"$\mu^1$ at $\tau$" + f"= {warmup * step}", r"$\hat{\mu}^1$ at $\tau$" + f"={warmup * step}", r"$\mu^1$ at $\tau$" + f"={T_end * step}", r"$\hat{\mu}^1$ at $\tau$" + f"={T_end * step}"]
-
-xlim = (-20, 20)
-ylim = (0, 50)
-
-fig = plt.figure(figsize=(10, 8))
-gs = gridspec.GridSpec(2, 3, width_ratios=[1, 1, 0.05])
-
-axes = [fig.add_subplot(gs[0,0]), fig.add_subplot(gs[0,1]),
-        fig.add_subplot(gs[1,0]), fig.add_subplot(gs[1,1])]
-
-for i, (data, ax) in enumerate(zip(datasets, axes)):
-    x = data[:, 0]
-    y = data[:, 1]
-    h = ax.hist2d(x, y, bins=100, range=[xlim, ylim], cmap="magma_r")
-    
-    ax.set_xlim(xlim)
-    ax.set_ylim(ylim)
-    ax.set_xlabel("x")
-    ax.set_ylabel("z")
-    ax.set_title(titles[i])
-
-cax = fig.add_subplot(gs[:, 2])
-cbar = fig.colorbar(h[3], cax=cax)
-cbar.set_label("Counts")
-
-# fig.suptitle("Densities", fontsize=16)
-plt.tight_layout(rect=[0, 0, 1, 0.95])
-
-# Save the figure
-fig_path = os.path.join(figures_folder, 'densities_truepred.pdf')
-plt.savefig(fig_path, dpi=300, bbox_inches="tight")
-plt.show()
-
-#%%
-import matplotlib.gridspec as gridspec
 
 indices_plot = [0, 2]
 xlim = (-20, 20)
@@ -490,7 +362,7 @@ col3 = [100 * samples_11.mu2[:, warmup-1, indices_plot],
         100 * samples_11.mu2[:, -1,       indices_plot]]
 
 columns   = [col1, col2, col3]
-col_titles = [r"(a) $\mu^2_\tau$", r"(b) $\mu^1_\tau$", r"(c) $\hat{\mu}^1_\tau$"]
+col_titles = [r"(i) True $\mu^2_\tau$", r"(ii) True $\mu^1_\tau$", r"(iii) Predicted $\hat{\mu}^1_\tau$"]
 row_labels = [r"$\tau$" + f"$= {warmup * step}$", r"$\tau$" + f"$= {T_end * step}$"]
 
 # --- Figure ---
@@ -514,11 +386,11 @@ for col_idx, (col_data, col_title) in enumerate(zip(columns, col_titles)):
 
         # Column titles on top row only
         if row_idx == 0:
-            ax.set_title(col_title, fontsize=13)
+            ax.set_title(col_title)
 
         # Row labels on leftmost column only
         if col_idx == 0:
-            ax.set_ylabel(f"{row_labels[row_idx]}\nz", fontsize=10)
+            ax.set_ylabel(f"{row_labels[row_idx]}\nz")
         # else:
         #     ax.set_ylabel("z")
 
@@ -542,8 +414,8 @@ bins = 100
 kde = True
 
 coords = ['x', 'y', 'z']
-row_labels = [r'(a) Initial distribution $\tau=20$', r'(b) Final distribution $\tau = 80$']
-data_set_labels = [r'(a) True $\mu^2_\tau$', r'(b) True $\mu^1_\tau$', r'(c) Predicted $\hat{\mu}^1_\tau$']
+row_labels = [r'$\tau=20$', r'$\tau = 80$']
+data_set_labels = [r'(i) True $\mu^2_\tau$', r'(ii) True $\mu^1_\tau$', r'(iii) Predicted $\hat{\mu}^1_\tau$']
 
 fig, axes = plt.subplots(2, d, figsize=(5 * d, 8))
 
@@ -559,7 +431,8 @@ for row_idx, row in enumerate([row1, row2]):
                 ax.fill_between(grid, gaussian_kde(data)(grid), alpha=0.3, color=f"C{ds_idx}")
             else:
                 ax.hist(data, bins=bins, alpha=0.7, density=True, color=f"C{ds_idx}")
-
+        # if row_idx == 0 and dim_idx == 2:
+        #     ax.legend()
         ax.set_xlabel(coords[dim_idx] if row_idx == 1 else "")
         ax.set_ylabel(row_labels[row_idx] if dim_idx == 0 else "")
             
@@ -573,7 +446,8 @@ fig.legend(
     loc='lower center',
     ncol=n_datasets,
     bbox_to_anchor=(0.5, -0.05),  # just below the figure
-    frameon=False
+    frameon=False,
+    fontsize = 20
 )
 
 plt.tight_layout()
@@ -611,7 +485,7 @@ for dim_idx in range(d):
         else:
             ax.hist(data, bins=bins, alpha=0.7, density=True, color=f"C{ds_idx}")
         if dim_idx == d-1:
-            ax.legend()
+            ax.legend(loc = 'lower right')
 
     ax.set_xlabel(coords[dim_idx])
         
@@ -639,7 +513,7 @@ m = samples_12.mu1.shape[0]
 print(f"sample size is {m}")
 epsilon_sq = 0.1
 time = dataset_test.tt[warmup:-1]
-coords = ['(a) x', '(b) y', '(c) z']
+coords = ['x', 'y', 'z']
 
 fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
@@ -655,7 +529,7 @@ for i, (c, ax) in enumerate(zip(coords, axes)):
         ax.set_xlabel(f"Time $\\tau$")
     if i== 2:
         ax.legend()
-    ax.set_title(coords[i]+"-axis")
+    ax.set_title(coords[i])
     ax.set_xlim(warmup_time, 80)
     # ax.set_ylim(0.8 * 1e-3, 1.5 * 1e-1)
     # ax.legend(loc="upper right")
@@ -743,43 +617,6 @@ plt.savefig(fig_path, dpi=300, bbox_inches="tight")
 plt.show()
 
 
-#%% calculate distance between trajectories for one set of trajectories
-
-# true and predicted first trajectory
-traj_1, traj_2 = samples_11.mu1[0], samples_11.mu2[0]
-diff_traj = traj_1 - traj_2
-dist_trajs_truepred = np.linalg.norm(diff_traj, axis=1)
-
-# comparing two trajectories under the true system
-traj_1, traj_2 = samples_12.mu1[0], samples_12.mu2[0]
-diff_traj = traj_1 - traj_2
-dist_trajs_truetrue = np.linalg.norm(diff_traj, axis=1)
-
-time = dataset_test.tt[:-1]
-
-plt.figure(figsize=(8, 5))
-
-plt.plot(time, dist_trajs_truetrue, label="distance between $m_a$ and $m_b$ transported under Lorenz")
-plt.plot(time, dist_trajs_truepred, label="distance between $m_a$ transported under Lorenz and proxy")
-
-plt.yscale("log")
-plt.xlim(0, 80)       # example x range
-plt.ylim(0, 1)     # example y range; adjust to your data
-
-plt.xlabel("Time")
-plt.ylabel("Distance")
-# plt.title("Trajectory Distance Comparison", fontsize=14)
-
-plt.axvline(x=step * warmup, color="black", linestyle="--")
-
-plt.legend()
-plt.tight_layout()
-
-fig_path = os.path.join(figures_folder, 'Trajectories_distance_figure.pdf')
-plt.savefig(fig_path, dpi=300)
-plt.show()
-
-
 #%% calculate distance between trajectories average over all trajectories
 
 # true and predicted first trajectory
@@ -809,7 +646,7 @@ plt.ylabel("Distance")
 
 plt.axvline(x=step * warmup, color="black", linestyle="--")
 
-plt.legend()
+plt.legend(fontsize = 15)
 plt.tight_layout()
 
 fig_path = os.path.join(figures_folder, 'Trajectories_mean_distance_figure.pdf')
